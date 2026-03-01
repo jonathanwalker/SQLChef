@@ -187,8 +187,13 @@
         <!-- Footer: compact re-upload zone -->
         <div class="shrink-0 border-t border-gray-200 dark:border-gray-800 px-3 py-3 space-y-2">
             <div
-                class="h-16 border border-dashed border-gray-300 dark:border-gray-700 hover:border-gray-500 rounded-lg flex items-center justify-center gap-2 cursor-pointer bg-gray-100/40 dark:bg-gray-800/40 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-150"
-                @dragover.prevent="onDragOver"
+                class="h-16 border border-dashed rounded-lg flex items-center justify-center gap-2 cursor-pointer transition-colors duration-150"
+                :class="isDropping
+                    ? 'border-blue-500 bg-blue-950/20'
+                    : 'border-gray-300 dark:border-gray-700 hover:border-gray-500 bg-gray-100/40 dark:bg-gray-800/40 hover:bg-gray-100 dark:hover:bg-gray-800'"
+                @dragenter.prevent="dropDepth++"
+                @dragleave="dropDepth--"
+                @dragover.prevent
                 @drop.prevent="onDrop"
                 @click="triggerFileSelect"
             >
@@ -199,13 +204,24 @@
                 <input type="file" ref="fileInputReplace" class="hidden" @change="handleFileReplace" />
             </div>
 
-            <input
-                ref="urlInput"
-                type="text"
-                class="w-full px-2 py-1.5 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-md text-xs text-gray-500 dark:text-gray-400 placeholder-gray-400 dark:placeholder-gray-600 focus:outline-none focus:border-gray-500 dark:focus:border-gray-600 transition-colors duration-150"
-                placeholder="https://example.com/data.csv"
-                @paste.prevent="onPaste"
-            />
+            <div class="relative">
+                <input
+                    v-model="urlInput"
+                    ref="urlInputEl"
+                    type="text"
+                    class="w-full px-2 py-1.5 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-md text-xs text-gray-500 dark:text-gray-400 placeholder-gray-400 dark:placeholder-gray-600 focus:outline-none focus:border-gray-500 dark:focus:border-gray-600 transition-colors duration-150 pr-6"
+                    placeholder="Paste or type a URL and press Enter..."
+                    :disabled="isLoadingUrl"
+                    @paste.prevent="onPaste"
+                    @keydown.enter="onUrlSubmit"
+                />
+                <div v-if="isLoadingUrl" class="absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none">
+                    <svg class="animate-spin h-3 w-3 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                    </svg>
+                </div>
+            </div>
         </div>
     </aside>
 </template>
@@ -217,7 +233,7 @@ export default {
         currentFile: { type: Object, required: true },
         fileExtension: { type: String, required: true },
         uploadDate: { type: String, required: true },
-        fileRowCount: { type: [Number, String], required: true },
+        fileRowCount: { type: [Number, String], default: null },
         fileColumns: { type: Array, required: true },
         csvOptions: { type: Object, required: true },
         jsonOptions: { type: Object, required: true },
@@ -226,10 +242,15 @@ export default {
     },
     data() {
         return {
-            fileUrl: "",
+            urlInput: "",
+            isLoadingUrl: false,
+            dropDepth: 0,
             showAdvancedCsv: false,
             localColumns: [],
         };
+    },
+    computed: {
+        isDropping() { return this.dropDepth > 0; },
     },
     watch: {
         fileColumns: {
@@ -251,11 +272,8 @@ export default {
             const i = Math.floor(Math.log(bytes) / Math.log(k));
             return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
         },
-        onDragOver(event) {
-            event.preventDefault();
-            event.stopPropagation();
-        },
         onDrop(event) {
+            this.dropDepth = 0;
             const files = Array.from(event.dataTransfer.files);
             const newFile = files.find((f) => this.isStructuredFile(f));
             if (!newFile) {
@@ -279,31 +297,38 @@ export default {
             const ext = file.name.split(".").pop().toLowerCase();
             return ["csv", "tsv", "txt", "json", "ndjson", "parquet"].includes(ext);
         },
-        async onPaste(e) {
-            e.preventDefault();
-            const pastedText = e.clipboardData?.getData("text");
-            if (!pastedText) return;
-            this.fileUrl = pastedText.trim();
-
+        onPaste(e) {
+            const text = e.clipboardData?.getData("text")?.trim();
+            if (text) {
+                this.urlInput = text;
+                this.loadRemoteFile(text);
+            }
+        },
+        onUrlSubmit() {
+            const url = this.urlInput.trim();
+            if (url) this.loadRemoteFile(url);
+        },
+        async loadRemoteFile(url) {
+            this.isLoadingUrl = true;
             try {
-                const response = await fetch(this.fileUrl);
+                const response = await fetch(url);
                 if (!response.ok) {
                     throw new Error(`Failed to fetch: ${response.status} ${response.statusText}`);
                 }
                 const blob = await response.blob();
-                let ext = "txt";
-                if (this.fileUrl.includes(".")) {
-                    ext = this.fileUrl.split(".").pop().split("?")[0] || "txt";
-                }
-                const fileName = `remote_file.${ext}`;
-                const file = new File([blob], fileName, { type: blob.type });
+                let name;
+                try {
+                    const seg = new URL(url).pathname.split('/').pop();
+                    name = (seg && seg.includes('.')) ? seg : null;
+                } catch { name = null; }
+                name = name ?? `remote_file.${url.split('.').pop().split('?')[0] || 'txt'}`;
+                const file = new File([blob], name, { type: blob.type });
                 this.$emit("file-selected", file);
-                this.fileUrl = "";
-                if (this.$refs.urlInput) {
-                    this.$refs.urlInput.value = "";
-                }
+                this.urlInput = "";
             } catch (error) {
                 alert("Error loading file from URL:\n" + error.message);
+            } finally {
+                this.isLoadingUrl = false;
             }
         },
         startEdit(index) {

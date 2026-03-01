@@ -9,7 +9,7 @@
                 : 'border-gray-300 dark:border-gray-700 hover:border-gray-500 bg-gray-50 dark:bg-gray-900'"
             @dragenter.prevent="dragDepth++"
             @dragleave="dragDepth--"
-            @dragover.prevent="onDragOver"
+            @dragover.prevent
             @drop.prevent="onDrop"
             @click="triggerFileSelect"
         >
@@ -34,15 +34,24 @@
             <input type="file" ref="fileInput" class="hidden" @change="onFileSelect" />
         </div>
 
-        <!-- URL paste input -->
-        <div class="max-w-lg w-full mt-4">
+        <!-- URL input -->
+        <div class="max-w-lg w-full mt-4 relative">
             <input
+                v-model="urlInput"
                 ref="urlInput"
                 type="text"
-                class="w-full px-3 py-2 bg-gray-100 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg text-sm text-gray-700 dark:text-gray-300 placeholder-gray-400 dark:placeholder-gray-600 focus:outline-none focus:border-gray-500 transition-colors duration-150"
-                placeholder="Or paste a file URL..."
+                class="w-full px-3 py-2 bg-gray-100 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg text-sm text-gray-700 dark:text-gray-300 placeholder-gray-400 dark:placeholder-gray-600 focus:outline-none focus:border-gray-500 transition-colors duration-150 pr-8"
+                placeholder="Or paste / type a file URL and press Enter..."
+                :disabled="isLoadingUrl"
                 @paste.prevent="onPaste"
+                @keydown.enter="onUrlSubmit"
             />
+            <div v-if="isLoadingUrl" class="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none">
+                <svg class="animate-spin h-4 w-4 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                </svg>
+            </div>
         </div>
 
         <!-- Divider -->
@@ -58,7 +67,8 @@
                 v-for="sample in samples"
                 :key="sample.name"
                 @click="loadSample(sample)"
-                class="px-3 py-1.5 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-md text-sm transition-colors duration-150"
+                :disabled="isLoadingUrl"
+                class="px-3 py-1.5 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-md text-sm transition-colors duration-150 disabled:opacity-50"
             >
                 {{ sample.name }}
             </button>
@@ -67,27 +77,33 @@
 </template>
 
 <script>
+function filenameFromUrl(url) {
+    try {
+        const seg = new URL(url).pathname.split('/').pop();
+        return seg && seg.includes('.') ? seg : null;
+    } catch {
+        return null;
+    }
+}
+
 export default {
     name: "Uploader",
     data() {
         return {
-            fileUrl: "",
+            urlInput: "",
             dragDepth: 0,
-            basePath: import.meta.env.BASE_URL,
+            isLoadingUrl: false,
             samples: [
-                { name: "sample.csv", url: `${import.meta.env.BASE_URL}sample.csv` },
-                { name: "sample.json", url: `${import.meta.env.BASE_URL}sample.json` },
+                { name: "sample.csv",     url: `${import.meta.env.BASE_URL}sample.csv` },
+                { name: "sample.json",    url: `${import.meta.env.BASE_URL}sample.json` },
                 { name: "sample.parquet", url: `${import.meta.env.BASE_URL}sample.parquet` },
             ],
         };
     },
     computed: {
-        isDragging() {
-            return this.dragDepth > 0;
-        },
+        isDragging() { return this.dragDepth > 0; },
     },
     methods: {
-        onDragOver(event) { this.$emit("dragover", event); },
         onDrop(event) {
             this.dragDepth = 0;
             const files = Array.from(event.dataTransfer.files);
@@ -96,30 +112,36 @@ export default {
         triggerFileSelect() { this.$refs.fileInput.click(); },
         onFileSelect(event) {
             const file = event.target.files[0];
-            if (file) { this.$emit("file-selected", file); }
+            if (file) this.$emit("file-selected", file);
         },
-        async onPaste(e) {
-            e.preventDefault();
-            const pastedText = e.clipboardData?.getData("text");
-            if (!pastedText) return;
-            this.fileUrl = pastedText.trim();
-            await this.loadRemoteFile(this.fileUrl);
+        onPaste(e) {
+            const text = e.clipboardData?.getData("text")?.trim();
+            if (text) {
+                this.urlInput = text;
+                this.loadRemoteFile(text);
+            }
+        },
+        onUrlSubmit() {
+            const url = this.urlInput.trim();
+            if (url) this.loadRemoteFile(url);
         },
         async loadSample(sample) { await this.loadRemoteFile(sample.url); },
         async loadRemoteFile(url) {
+            this.isLoadingUrl = true;
             try {
                 const response = await fetch(url);
-                if (!response.ok) { throw new Error(`Could not fetch file:\n ${response.status} ${response.statusText}`); }
+                if (!response.ok) {
+                    throw new Error(`Could not fetch file: ${response.status} ${response.statusText}`);
+                }
                 const blob = await response.blob();
-                let ext = "txt";
-                if (url.includes(".")) { ext = url.split(".").pop().split("?")[0] || "txt"; }
-                const filename = `remote_file.${ext}`;
-                const file = new File([blob], filename, { type: blob.type });
+                const name = filenameFromUrl(url) ?? `remote_file.${url.split('.').pop().split('?')[0] || 'txt'}`;
+                const file = new File([blob], name, { type: blob.type });
                 this.$emit("file-selected", file);
-                this.fileUrl = "";
-                if (this.$refs.urlInput) { this.$refs.urlInput.value = ""; }
+                this.urlInput = "";
             } catch (error) {
                 alert("Error loading file:\n" + error.message);
+            } finally {
+                this.isLoadingUrl = false;
             }
         },
     },
