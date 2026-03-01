@@ -1,9 +1,9 @@
 <template>
   <div id="app">
-    <header class="flex items-center justify-between px-5 h-11 bg-white dark:bg-zinc-950 border-b border-gray-200 dark:border-zinc-800 shrink-0">
+    <header class="flex items-center justify-between px-5 h-12 bg-white dark:bg-zinc-950 border-b border-gray-200 dark:border-zinc-800 shrink-0">
       <div class="flex items-center">
         <a :href="basePath" class="flex items-center">
-          <img :src="theme === 'dark' ? basePath + 'sqlchef-dark.svg' : basePath + 'sqlchef-light.svg'" alt="SQL Chef Logo" class="h-8 w-auto -ml-1" />
+          <img :src="theme === 'dark' ? basePath + 'sqlchef-dark.svg' : basePath + 'sqlchef-light.svg'" alt="SQL Chef Logo" class="h-10 w-auto -ml-1" />
         </a>
       </div>
 
