@@ -1,6 +1,6 @@
 <template>
   <div id="app">
-    <header class="flex items-center justify-between px-5 h-11 bg-white dark:bg-gray-950 border-b border-gray-200 dark:border-gray-800 shrink-0">
+    <header class="flex items-center justify-between px-5 h-11 bg-white dark:bg-zinc-950 border-b border-gray-200 dark:border-zinc-800 shrink-0">
       <div class="flex items-center">
         <a :href="basePath" class="flex items-center">
           <img :src="theme === 'dark' ? basePath + 'sqlchef-dark.svg' : basePath + 'sqlchef-light.svg'" alt="SQL Chef Logo" class="h-8 w-auto -ml-1" />
@@ -17,7 +17,7 @@
             :class="{
               'text-emerald-600 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-950/50 hover:bg-emerald-100 dark:hover:bg-emerald-950 cursor-pointer': dbState === 'verified',
               'text-red-600 bg-red-50 dark:text-red-400 dark:bg-red-950/50 cursor-pointer': dbState === 'failed',
-              'text-gray-400 dark:text-gray-600 animate-pulse cursor-default': dbState === 'loading',
+              'text-gray-400 dark:text-zinc-500 animate-pulse cursor-default': dbState === 'loading',
             }"
           >
             <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
@@ -34,32 +34,32 @@
           <!-- Security popover -->
           <div
             v-if="showSecurityPopover"
-            class="absolute right-0 top-full mt-2 w-80 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl shadow-2xl z-50 p-4 text-left"
+            class="absolute right-0 top-full mt-2 w-80 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-xl shadow-2xl z-50 p-4 text-left"
           >
             <!-- Caret -->
-            <div class="absolute right-4 -top-[7px] w-3 h-3 bg-white dark:bg-gray-900 border-l border-t border-gray-200 dark:border-gray-800 rotate-45"></div>
+            <div class="absolute right-4 -top-[7px] w-3 h-3 bg-white dark:bg-zinc-900 border-l border-t border-gray-200 dark:border-zinc-700 rotate-45"></div>
 
             <!-- Title -->
             <div class="flex items-center gap-2 mb-3">
               <svg class="h-4 w-4 text-emerald-500 dark:text-emerald-400 shrink-0" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/>
               </svg>
-              <span class="text-sm font-semibold text-gray-900 dark:text-gray-100">DuckDB WASM Verified</span>
+              <span class="text-sm font-semibold text-gray-900 dark:text-zinc-100">DuckDB WASM Verified</span>
             </div>
 
             <!-- Privacy statement -->
-            <p class="text-xs text-gray-600 dark:text-gray-400 mb-3 leading-relaxed">
+            <p class="text-xs text-gray-600 dark:text-zinc-400 mb-3 leading-relaxed">
               All SQL runs entirely in this browser tab. No data is sent to any server — not even to us.
             </p>
 
             <!-- WASM fingerprint -->
             <div v-if="wasmHash" class="mb-3">
-              <div class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">WASM fingerprint (SHA-256)</div>
-              <div class="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 rounded-md px-2.5 py-1.5">
-                <code class="text-xs font-mono text-gray-700 dark:text-gray-300 flex-1 truncate">{{ wasmHash.slice(7) }}</code>
+              <div class="text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1.5">WASM fingerprint (SHA-256)</div>
+              <div class="flex items-center gap-2 bg-gray-100 dark:bg-zinc-800 rounded-md px-2.5 py-1.5">
+                <code class="text-xs font-mono text-gray-700 dark:text-zinc-300 flex-1 truncate">{{ wasmHash.slice(7) }}</code>
                 <button
                   @click="copyWasmHash"
-                  class="shrink-0 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+                  class="shrink-0 text-gray-400 hover:text-gray-700 dark:hover:text-zinc-200 transition-colors"
                   :title="hashCopied ? 'Copied!' : 'Copy full hash'"
                 >
                   <svg v-if="!hashCopied" xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -74,14 +74,14 @@
 
             <!-- How it works -->
             <div class="mb-3">
-              <div class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">How it works</div>
-              <p class="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">Expected hashes are baked into the app bundle at build time — they can't be swapped server-side. Each file is verified against those hashes before DuckDB loads. If anything doesn't match, the app refuses to run.</p>
+              <div class="text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1">How it works</div>
+              <p class="text-xs text-gray-600 dark:text-zinc-400 leading-relaxed">Expected hashes are baked into the app bundle at build time — they can't be swapped server-side. Each file is verified against those hashes before DuckDB loads. If anything doesn't match, the app refuses to run.</p>
             </div>
 
             <!-- Build provenance -->
-            <div class="border-t border-gray-200 dark:border-gray-800 pt-3">
-              <div class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">Build provenance</div>
-              <p class="text-xs text-gray-600 dark:text-gray-400 mb-2 leading-relaxed">Built from public source on GitHub Actions with <code class="font-mono">npm ci</code> (pinned dependencies), then deployed directly to GitHub Pages — no intermediate steps or third-party CDNs.</p>
+            <div class="border-t border-gray-200 dark:border-zinc-700 pt-3">
+              <div class="text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1.5">Build provenance</div>
+              <p class="text-xs text-gray-600 dark:text-zinc-400 mb-2 leading-relaxed">Built from public source on GitHub Actions with <code class="font-mono">npm ci</code> (pinned dependencies), then deployed directly to GitHub Pages — no intermediate steps or third-party CDNs.</p>
               <div class="flex items-center gap-3">
                 <a
                   href="https://github.com/jonathanwalker/SQLChef"
@@ -110,7 +110,7 @@
         <!-- Theme toggle -->
         <button
           @click="toggleTheme"
-          class="p-1.5 rounded-md text-gray-400 hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-150 flex items-center"
+          class="p-1.5 rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 dark:text-zinc-400 dark:hover:text-zinc-200 dark:hover:bg-zinc-800 transition-colors duration-150 flex items-center"
           :title="theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'"
         >
           <!-- Moon icon (show in light mode to switch to dark) -->
@@ -126,7 +126,7 @@
         <!-- Query History button -->
         <button
           @click="toggleHistory"
-          class="p-1.5 rounded-md text-gray-500 hover:text-gray-800 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-gray-800 transition-colors duration-150 flex items-center"
+          class="p-1.5 rounded-md text-gray-500 hover:text-gray-800 hover:bg-gray-100 dark:text-zinc-400 dark:hover:text-zinc-200 dark:hover:bg-zinc-800 transition-colors duration-150 flex items-center"
           title="Query History"
         >
           <svg height="18px" version="1.1" viewBox="0 0 20 21" width="18px" xmlns="http://www.w3.org/2000/svg" fill="currentColor">
@@ -139,7 +139,7 @@
         <!-- GitHub link -->
         <a
           href="https://github.com/jonathanwalker/SQLChef"
-          class="p-1.5 rounded-md text-gray-500 hover:text-gray-800 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-gray-800 transition-colors duration-150 flex items-center"
+          class="p-1.5 rounded-md text-gray-500 hover:text-gray-800 hover:bg-gray-100 dark:text-zinc-400 dark:hover:text-zinc-200 dark:hover:bg-zinc-800 transition-colors duration-150 flex items-center"
           title="View on GitHub"
         >
           <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
@@ -179,7 +179,7 @@ export default {
       dbState: 'loading',
       wasmHash: null,
       basePath: import.meta.env.BASE_URL,
-      theme: localStorage.getItem('sqlchef-theme') || 'dark',
+      theme: localStorage.getItem('sqlchef-theme') || 'light',
     };
   },
   async mounted() {

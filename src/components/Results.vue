@@ -1,9 +1,9 @@
 <template>
-    <div class="flex-1 flex flex-col overflow-hidden bg-white dark:bg-gray-950">
+    <div class="flex-1 flex flex-col overflow-hidden bg-white dark:bg-zinc-900">
 
         <!-- Loading state -->
         <div v-if="isLoading" class="flex-1 flex items-center justify-center">
-            <div class="flex items-center gap-3 text-gray-400 dark:text-gray-500">
+            <div class="flex items-center gap-3 text-gray-400 dark:text-zinc-500">
                 <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
@@ -13,7 +13,7 @@
         </div>
 
         <!-- Empty state -->
-        <div v-else-if="!queryResults.length" class="flex-1 flex flex-col items-center justify-center gap-3 text-gray-400 dark:text-gray-600">
+        <div v-else-if="!queryResults.length" class="flex-1 flex flex-col items-center justify-center gap-3 text-gray-400 dark:text-zinc-600">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 5.625c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125" />
             </svg>
@@ -29,7 +29,7 @@
                             <th
                                 v-for="(header, idx) in queryResults[0]"
                                 :key="idx"
-                                class="sticky top-0 z-10 bg-gray-50 dark:bg-gray-900 px-3 py-2 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-800 whitespace-nowrap cursor-pointer select-none hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-100"
+                                class="sticky top-0 z-10 bg-gray-50 dark:bg-zinc-950 px-3 py-2 text-left text-xs font-semibold text-gray-500 dark:text-zinc-400 border-b border-gray-200 dark:border-zinc-800 whitespace-nowrap cursor-pointer select-none hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors duration-100"
                                 @click="cycleSort(idx)"
                                 :title="`Sort by ${header}`"
                             >
@@ -52,15 +52,15 @@
                         <tr
                             v-for="(row, rowIndex) in sortedRows"
                             :key="rowIndex"
-                            class="hover:bg-gray-100/70 dark:hover:bg-gray-800/70 transition-colors duration-150"
-                            :class="rowIndex % 2 === 1 ? 'bg-gray-100/50 dark:bg-gray-900/50' : ''"
+                            class="hover:bg-gray-100/70 dark:hover:bg-zinc-800/40 transition-colors duration-150"
+                            :class="rowIndex % 2 === 1 ? 'bg-gray-100/50 dark:bg-zinc-800/20' : ''"
                         >
                             <td
                                 v-for="(cell, cellIndex) in row"
                                 :key="cellIndex"
-                                class="px-3 py-2 text-sm border-b border-gray-200/50 dark:border-gray-800/50 whitespace-nowrap cursor-pointer transition-colors duration-75"
+                                class="px-3 py-2 text-sm border-b border-gray-200/50 dark:border-zinc-800/50 whitespace-nowrap cursor-pointer transition-colors duration-75"
                                 :class="[
-                                    cell == null ? 'text-gray-400 dark:text-gray-600 italic' : 'text-gray-700 dark:text-gray-300',
+                                    cell == null ? 'text-gray-400 dark:text-zinc-600 italic' : 'text-gray-700 dark:text-zinc-300',
                                     copiedKey === `${rowIndex}-${cellIndex}` ? 'bg-emerald-50 dark:bg-emerald-950/40 !text-emerald-700 dark:!text-emerald-300' : '',
                                 ]"
                                 :title="cell == null ? '' : 'Click to copy'"
@@ -74,15 +74,15 @@
             </div>
 
             <!-- Footer bar -->
-            <div class="flex items-center justify-between px-3 py-1.5 bg-gray-50 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 shrink-0">
-                <span class="text-xs text-gray-400 dark:text-gray-500">
+            <div class="flex items-center justify-between px-3 py-1.5 bg-gray-50 dark:bg-zinc-950 border-t border-gray-200 dark:border-zinc-800 shrink-0">
+                <span class="text-xs text-gray-400 dark:text-zinc-500">
                     {{ queryResults.length - 1 }} {{ queryResults.length - 1 === 1 ? 'row' : 'rows' }}
-                    <span v-if="sortColIdx !== null" class="ml-2 text-gray-300 dark:text-gray-700">
+                    <span v-if="sortColIdx !== null" class="ml-2 text-gray-300 dark:text-zinc-700">
                         sorted by {{ queryResults[0][sortColIdx] }} {{ sortDir === 'asc' ? '↑' : '↓' }}
                     </span>
                 </span>
                 <button
-                    class="flex items-center gap-1.5 px-2.5 py-1 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 border border-gray-300 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 text-xs rounded-md transition-colors duration-150"
+                    class="flex items-center gap-1.5 px-2.5 py-1 bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700 border border-gray-300 dark:border-zinc-700 text-gray-500 dark:text-zinc-400 hover:text-gray-800 dark:hover:text-zinc-200 text-xs rounded-md transition-colors duration-150"
                     @click="$emit('download-results')"
                     title="Export CSV"
                 >

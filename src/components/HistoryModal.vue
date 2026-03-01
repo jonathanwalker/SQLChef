@@ -5,15 +5,15 @@
         @click.self="$emit('close')"
     >
         <!-- Modal -->
-        <div class="max-w-xl w-full mx-4 bg-gray-50 dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-2xl flex flex-col max-h-[80vh]">
+        <div class="max-w-xl w-full mx-4 bg-gray-50 dark:bg-zinc-900 rounded-2xl border border-gray-200 dark:border-zinc-800 shadow-2xl flex flex-col max-h-[80vh]">
 
             <!-- Header -->
-            <div class="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-800 shrink-0">
-                <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100">Query History</h2>
+            <div class="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-zinc-800 shrink-0">
+                <h2 class="text-base font-semibold text-gray-900 dark:text-zinc-100">Query History</h2>
                 <div class="flex items-center gap-1">
                     <button
                         @click="$emit('clear-history')"
-                        class="p-1.5 rounded-md text-gray-400 dark:text-gray-500 hover:text-red-400 transition-colors duration-150"
+                        class="p-1.5 rounded-md text-gray-400 dark:text-zinc-500 hover:text-red-400 transition-colors duration-150"
                         title="Clear all history"
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
@@ -22,7 +22,7 @@
                     </button>
                     <button
                         @click="$emit('close')"
-                        class="p-1.5 rounded-md text-gray-400 dark:text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 transition-colors duration-150"
+                        class="p-1.5 rounded-md text-gray-400 dark:text-zinc-500 hover:text-gray-800 dark:hover:text-zinc-200 transition-colors duration-150"
                         title="Close"
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -33,7 +33,7 @@
             </div>
 
             <!-- Empty state -->
-            <div v-if="!history.length" class="flex-1 flex flex-col items-center justify-center gap-3 py-12 text-gray-400 dark:text-gray-600">
+            <div v-if="!history.length" class="flex-1 flex flex-col items-center justify-center gap-3 py-12 text-gray-400 dark:text-zinc-600">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
                 </svg>
@@ -41,16 +41,16 @@
             </div>
 
             <!-- History list — newest first -->
-            <ul v-else class="flex-1 overflow-y-auto divide-y divide-gray-200 dark:divide-gray-800">
+            <ul v-else class="flex-1 overflow-y-auto divide-y divide-gray-200 dark:divide-zinc-800">
                 <li
                     v-for="(item, index) in reversedHistory"
                     :key="index"
-                    class="group flex items-start gap-3 px-5 py-3 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer transition-colors duration-150"
+                    class="group flex items-start gap-3 px-5 py-3 hover:bg-gray-100 dark:hover:bg-zinc-800 cursor-pointer transition-colors duration-150"
                     @click="$emit('restore', item)"
                 >
                     <div class="flex-1 min-w-0">
-                        <div class="text-xs text-gray-400 dark:text-gray-500 mb-1">{{ relativeTime(item.timestamp) }}</div>
-                        <div class="font-mono text-xs text-gray-700 dark:text-gray-300 line-clamp-2 leading-relaxed">{{ queryPreview(item.query) }}</div>
+                        <div class="text-xs text-gray-400 dark:text-zinc-500 mb-1">{{ relativeTime(item.timestamp) }}</div>
+                        <div class="font-mono text-xs text-gray-700 dark:text-zinc-300 line-clamp-2 leading-relaxed">{{ queryPreview(item.query) }}</div>
                     </div>
                     <!-- Delete button -->
                     <button

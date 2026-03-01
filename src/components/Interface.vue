@@ -1,42 +1,75 @@
 <template>
-    <div class="w-full flex-1 flex flex-col overflow-hidden text-gray-800 dark:text-gray-200 bg-gray-50 dark:bg-gray-900 relative">
+    <div class="w-full flex-1 flex flex-col overflow-hidden text-gray-800 dark:text-zinc-200 bg-gray-50 dark:bg-zinc-900 relative">
 
-        <!-- TAB BAR -->
-        <div class="flex items-center bg-white dark:bg-gray-950 border-b border-gray-200 dark:border-gray-800 shrink-0 overflow-x-auto">
-            <button
-                v-for="s in sessions"
-                :key="s.id"
-                class="group relative flex items-center gap-1.5 px-3 py-2 shrink-0 text-xs border-b-2 transition-colors duration-100"
-                style="max-width: 180px"
-                :class="s.id === activeSessionId
-                    ? 'border-emerald-500 text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-900'
-                    : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-900'"
-                @click="switchSession(s.id)"
-            >
-                <span class="h-1.5 w-1.5 rounded-full shrink-0" :class="s.file ? extensionDot(s.fileExtension) : 'bg-gray-300 dark:bg-gray-600'"></span>
-                <span class="truncate">{{ s.file ? s.file.name : 'New Tab' }}</span>
-                <span
-                    class="shrink-0 opacity-0 group-hover:opacity-100 flex items-center justify-center h-3.5 w-3.5 rounded text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-opacity duration-100"
-                    @click.stop="closeSession(s.id)"
-                    title="Close tab"
+        <!-- TAB BAR — only shown when 2+ sessions -->
+        <div v-if="sessions.length > 1" class="flex items-center bg-white dark:bg-zinc-950 border-b border-gray-200 dark:border-zinc-800 shrink-0">
+            <!-- Scrollable tab strip — keeps + always visible outside -->
+            <div class="flex-1 flex overflow-x-auto min-w-0" style="scrollbar-width: none; -ms-overflow-style: none;">
+                <div
+                    v-for="s in sessions"
+                    :key="s.id"
+                    role="button"
+                    tabindex="0"
+                    class="group relative flex items-center gap-1.5 px-3 py-2 shrink-0 text-xs border-b-2 cursor-pointer transition-colors duration-100"
+                    style="max-width: 180px; min-width: 80px"
+                    :class="s.id === activeSessionId
+                        ? 'border-emerald-500 text-gray-900 dark:text-zinc-100 bg-gray-50 dark:bg-zinc-900'
+                        : 'border-transparent text-gray-500 dark:text-zinc-500 hover:text-gray-700 dark:hover:text-zinc-300 hover:bg-gray-50 dark:hover:bg-zinc-900'"
+                    @click="renamingSessionId !== s.id && switchSession(s.id)"
+                    @keydown.enter="switchSession(s.id)"
                 >
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                </span>
-            </button>
-
-            <!-- Add new tab -->
+                    <span class="h-1.5 w-1.5 rounded-full shrink-0" :class="s.file ? extensionDot(s.fileExtension) : 'bg-gray-300 dark:bg-zinc-600'"></span>
+                    <!-- Inline rename input -->
+                    <input
+                        v-if="renamingSessionId === s.id"
+                        v-model="renameValue"
+                        type="text"
+                        class="tab-rename-input flex-1 min-w-0 bg-transparent border-none outline-none text-xs w-24 text-gray-900 dark:text-zinc-100"
+                        @click.stop
+                        @keydown.enter.stop="finishRename(s.id)"
+                        @keydown.esc.stop="renamingSessionId = null"
+                        @blur="finishRename(s.id)"
+                    />
+                    <!-- Label — double-click to rename -->
+                    <span v-else class="truncate flex-1" @dblclick.stop="startRename(s)">
+                        {{ s.label || (s.file ? s.file.name : 'New Tab') }}
+                    </span>
+                    <!-- Close button -->
+                    <span
+                        class="shrink-0 opacity-0 group-hover:opacity-100 flex items-center justify-center h-3.5 w-3.5 rounded text-gray-400 hover:text-gray-700 dark:hover:text-zinc-200 transition-opacity duration-100"
+                        @click.stop="closeSession(s.id)"
+                        title="Close tab"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </span>
+                </div>
+            </div>
+            <!-- Pinned + button — always reachable even when tabs overflow -->
             <button
-                class="flex items-center justify-center h-7 w-7 shrink-0 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors duration-100 ml-0.5 my-1"
+                class="flex items-center justify-center h-7 w-7 shrink-0 text-gray-400 hover:text-gray-700 dark:hover:text-zinc-200 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded transition-colors duration-100 mx-1 my-1"
                 @click="addEmptySession"
-                title="Open new tab"
+                title="New tab"
             >
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
                 </svg>
             </button>
         </div>
+
+        <!-- Single-tab: labeled new tab button at top-right -->
+        <button
+            v-if="sessions.length <= 1"
+            class="absolute top-2 right-2 z-10 flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs text-gray-500 dark:text-zinc-400 bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 hover:text-gray-800 dark:hover:text-zinc-100 hover:border-gray-300 dark:hover:border-zinc-500 shadow-sm transition-colors duration-150"
+            @click="addEmptySession"
+            title="Open a second file in a new tab"
+        >
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+            </svg>
+            New tab
+        </button>
 
         <!-- Uploader: active session has no file and no results -->
         <Uploader
@@ -99,6 +132,7 @@ let sessionCounter = 0;
 function makeSession() {
     return {
         id: ++sessionCounter,
+        label: null,
         file: null,
         fileExtension: "",
         tableName: "",
@@ -129,6 +163,8 @@ export default {
             sessions: [],
             activeSessionId: null,
             dbInitialized: false,
+            renamingSessionId: null,
+            renameValue: '',
         };
     },
     computed: {
@@ -207,6 +243,22 @@ export default {
                 parquet: 'bg-purple-400',
             };
             return map[ext] || 'bg-gray-400';
+        },
+
+        startRename(session) {
+            if (session.id !== this.activeSessionId) this.switchSession(session.id);
+            this.renameValue = session.label || (session.file ? session.file.name : 'New Tab');
+            this.renamingSessionId = session.id;
+            this.$nextTick(() => {
+                const input = this.$el.querySelector('.tab-rename-input');
+                if (input) { input.focus(); input.select(); }
+            });
+        },
+        finishRename(id) {
+            if (this.renamingSessionId !== id) return;
+            const session = this.sessions.find(s => s.id === id);
+            if (session) session.label = this.renameValue.trim() || null;
+            this.renamingSessionId = null;
         },
 
         updateQuery(newQuery) {

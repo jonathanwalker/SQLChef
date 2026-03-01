@@ -1,7 +1,7 @@
 <template>
-    <div class="flex flex-col bg-gray-50 dark:bg-gray-900">
+    <div class="flex flex-col bg-gray-50 dark:bg-zinc-900">
         <!-- Action bar -->
-        <div class="flex items-center gap-2 px-3 py-2 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
+        <div class="flex items-center gap-2 px-3 py-2 bg-gray-50 dark:bg-zinc-900 border-b border-gray-200 dark:border-zinc-800">
             <!-- Run button -->
             <button
                 class="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium rounded-md transition-colors duration-150 disabled:opacity-75"
@@ -23,7 +23,7 @@
 
             <!-- Format button -->
             <button
-                class="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 text-sm rounded-md transition-colors duration-150"
+                class="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700 border border-gray-300 dark:border-zinc-700 text-gray-700 dark:text-zinc-300 text-sm rounded-md transition-colors duration-150"
                 @click="beautifySQL"
                 title="Format Query"
             >
@@ -34,24 +34,24 @@
             </button>
 
             <!-- Keyboard hint -->
-            <span class="text-xs text-gray-400 dark:text-gray-600 ml-1">&#8984;&#8629;</span>
+            <span class="text-xs text-gray-400 dark:text-zinc-600 ml-1">&#8984;&#8629;</span>
 
             <!-- Stats (right-aligned) -->
-            <div v-if="queryStats" class="ml-auto flex items-center gap-2 text-xs text-gray-400 dark:text-gray-500">
+            <div v-if="queryStats" class="ml-auto flex items-center gap-2 text-xs text-gray-400 dark:text-zinc-500">
                 <span>{{ queryStats.rowsReturned || 0 }} rows</span>
-                <span class="text-gray-300 dark:text-gray-700">·</span>
+                <span class="text-gray-300 dark:text-zinc-700">·</span>
                 <span>{{ (queryStats.durationMs / 1000).toFixed(3) }}s</span>
-                <span v-if="queryStats.bytesScanned" class="text-gray-300 dark:text-gray-700">·</span>
+                <span v-if="queryStats.bytesScanned" class="text-gray-300 dark:text-zinc-700">·</span>
                 <span v-if="queryStats.bytesScanned">{{ formatBytes(queryStats.bytesScanned) }}</span>
             </div>
         </div>
 
         <!-- Textarea -->
-        <div class="bg-gray-100 dark:bg-gray-950">
+        <div class="bg-gray-100 dark:bg-zinc-950">
             <textarea
                 v-model="localQuery"
                 ref="textarea"
-                class="w-full p-4 bg-gray-100 dark:bg-gray-950 text-sm font-mono text-gray-900 dark:text-gray-200 leading-relaxed resize-none focus:outline-none min-h-[120px] max-h-[280px] overflow-y-auto"
+                class="w-full p-4 bg-gray-100 dark:bg-zinc-950 text-sm font-mono text-gray-900 dark:text-zinc-200 leading-relaxed resize-none focus:outline-none min-h-[120px] max-h-[280px] overflow-y-auto"
                 placeholder="Write your SQL query here..."
                 @keydown.enter.prevent="onKeyDown"
                 @keydown.tab.prevent="onTab"

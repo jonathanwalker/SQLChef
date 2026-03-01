@@ -16,7 +16,7 @@ html, body {
 }
 
 html.dark, html.dark body {
-  background-color: #030712;
+  background-color: #09090b; /* zinc-950 */
 }
 
 #app {
