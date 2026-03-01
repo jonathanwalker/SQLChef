@@ -35,75 +35,103 @@
           <div
             v-if="showSecurityPopover"
             class="absolute right-0 top-full mt-2 w-80 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-xl shadow-2xl z-50 p-4 text-left"
+            :class="dbState === 'failed' ? 'border-red-200 dark:border-red-800' : ''"
           >
             <!-- Caret -->
-            <div class="absolute right-4 -top-[7px] w-3 h-3 bg-white dark:bg-zinc-900 border-l border-t border-gray-200 dark:border-zinc-700 rotate-45"></div>
+            <div class="absolute right-4 -top-[7px] w-3 h-3 bg-white dark:bg-zinc-900 border-l border-t rotate-45"
+              :class="dbState === 'failed' ? 'border-red-200 dark:border-red-800' : 'border-gray-200 dark:border-zinc-700'"></div>
 
-            <!-- Title -->
-            <div class="flex items-center gap-2 mb-3">
-              <svg class="h-4 w-4 text-emerald-500 dark:text-emerald-400 shrink-0" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/>
-              </svg>
-              <span class="text-sm font-semibold text-gray-900 dark:text-zinc-100">DuckDB WASM Verified</span>
-            </div>
-
-            <!-- Privacy statement -->
-            <p class="text-xs text-gray-600 dark:text-zinc-400 mb-3 leading-relaxed">
-              All SQL runs entirely in this browser tab. No data is sent to any server — not even to us.
-            </p>
-
-            <!-- WASM fingerprint -->
-            <div v-if="wasmHash" class="mb-3">
-              <div class="text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1.5">WASM fingerprint (SHA-256)</div>
-              <div class="flex items-center gap-2 bg-gray-100 dark:bg-zinc-800 rounded-md px-2.5 py-1.5">
-                <code class="text-xs font-mono text-gray-700 dark:text-zinc-300 flex-1 truncate">{{ wasmHash.slice(7) }}</code>
-                <button
-                  @click="copyWasmHash"
-                  class="shrink-0 text-gray-400 hover:text-gray-700 dark:hover:text-zinc-200 transition-colors"
-                  :title="hashCopied ? 'Copied!' : 'Copy full hash'"
-                >
-                  <svg v-if="!hashCopied" xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                  </svg>
-                  <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-                  </svg>
-                </button>
+            <!-- FAILED state -->
+            <template v-if="dbState === 'failed'">
+              <div class="flex items-center gap-2 mb-3">
+                <svg class="h-4 w-4 text-red-500 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm1 13h-2v-2h2v2zm0-4h-2V7h2v4z"/>
+                </svg>
+                <span class="text-sm font-semibold text-red-600 dark:text-red-400">Integrity Check Failed</span>
               </div>
-            </div>
-
-            <!-- How it works -->
-            <div class="mb-3">
-              <div class="text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1">How it works</div>
-              <p class="text-xs text-gray-600 dark:text-zinc-400 leading-relaxed">Expected hashes are baked into the app bundle at build time — they can't be swapped server-side. Each file is verified against those hashes before DuckDB loads. If anything doesn't match, the app refuses to run.</p>
-            </div>
-
-            <!-- Build provenance -->
-            <div class="border-t border-gray-200 dark:border-zinc-700 pt-3">
-              <div class="text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1.5">Build provenance</div>
-              <p class="text-xs text-gray-600 dark:text-zinc-400 mb-2 leading-relaxed">Built from public source on GitHub Actions with <code class="font-mono">npm ci</code> (pinned dependencies), then deployed directly to GitHub Pages — no intermediate steps or third-party CDNs.</p>
-              <div class="flex items-center gap-3">
-                <a
-                  href="https://github.com/jonathanwalker/SQLChef"
-                  target="_blank"
-                  rel="noopener"
-                  class="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 0C5.373 0 0 5.373 0 12c0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 17.07 3.633 16.7 3.633 16.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.807 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.333-5.466-5.93 0-1.31.468-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23a11.52 11.52 0 013.003-.404c1.02.005 2.045.138 3.003.404 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.21 0 1.596-.015 2.877-.015 3.27 0 .315.21.69.825.57C20.565 21.796 24 17.3 24 12c0-6.627-5.373-12-12-12z"/>
-                  </svg>
-                  Source code
-                </a>
-                <a
-                  href="https://github.com/jonathanwalker/SQLChef/actions"
-                  target="_blank"
-                  rel="noopener"
-                  class="text-xs text-blue-600 dark:text-blue-400 hover:underline"
-                >
-                  Build logs
-                </a>
+              <p class="text-xs text-gray-700 dark:text-zinc-300 mb-3 leading-relaxed">
+                The DuckDB WASM file did not match its expected fingerprint. This may indicate the file has been tampered with or corrupted in transit.
+              </p>
+              <div class="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 rounded-lg px-3 py-2 mb-3">
+                <p class="text-xs font-semibold text-red-600 dark:text-red-400">Do not use this session.</p>
+                <p class="text-xs text-red-500 dark:text-red-400 mt-0.5">Any query results could be compromised.</p>
               </div>
-            </div>
+              <button
+                @click="reloadPage"
+                class="w-full px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white text-xs font-medium rounded-md transition-colors duration-150"
+              >
+                Reload page
+              </button>
+            </template>
+
+            <!-- VERIFIED state -->
+            <template v-else>
+              <!-- Title -->
+              <div class="flex items-center gap-2 mb-3">
+                <svg class="h-4 w-4 text-emerald-500 dark:text-emerald-400 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/>
+                </svg>
+                <span class="text-sm font-semibold text-gray-900 dark:text-zinc-100">DuckDB WASM Verified</span>
+              </div>
+
+              <!-- Privacy statement -->
+              <p class="text-xs text-gray-600 dark:text-zinc-400 mb-3 leading-relaxed">
+                All SQL runs entirely in this browser tab. No data is sent to any server — not even to us.
+              </p>
+
+              <!-- WASM fingerprint -->
+              <div v-if="wasmHash" class="mb-3">
+                <div class="text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1.5">WASM fingerprint (SHA-256)</div>
+                <div class="flex items-center gap-2 bg-gray-100 dark:bg-zinc-800 rounded-md px-2.5 py-1.5">
+                  <code class="text-xs font-mono text-gray-700 dark:text-zinc-300 flex-1 truncate">{{ wasmHash.slice(7) }}</code>
+                  <button
+                    @click="copyWasmHash"
+                    class="shrink-0 text-gray-400 hover:text-gray-700 dark:hover:text-zinc-200 transition-colors"
+                    :title="hashCopied ? 'Copied!' : 'Copy full hash'"
+                  >
+                    <svg v-if="!hashCopied" xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                    <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              <!-- How it works -->
+              <div class="mb-3">
+                <div class="text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1">How it works</div>
+                <p class="text-xs text-gray-600 dark:text-zinc-400 leading-relaxed">Expected hashes are baked into the app bundle at build time — they can't be swapped server-side. Each file is verified against those hashes before DuckDB loads. If anything doesn't match, the app refuses to run.</p>
+              </div>
+
+              <!-- Build provenance -->
+              <div class="border-t border-gray-200 dark:border-zinc-700 pt-3">
+                <div class="text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1.5">Build provenance</div>
+                <p class="text-xs text-gray-600 dark:text-zinc-400 mb-2 leading-relaxed">Built from public source on GitHub Actions with <code class="font-mono">npm ci</code> (pinned dependencies), then deployed directly to GitHub Pages — no intermediate steps or third-party CDNs.</p>
+                <div class="flex items-center gap-3">
+                  <a
+                    href="https://github.com/jonathanwalker/SQLChef"
+                    target="_blank"
+                    rel="noopener"
+                    class="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 0C5.373 0 0 5.373 0 12c0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 17.07 3.633 16.7 3.633 16.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.807 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.333-5.466-5.93 0-1.31.468-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23a11.52 11.52 0 013.003-.404c1.02.005 2.045.138 3.003.404 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.21 0 1.596-.015 2.877-.015 3.27 0 .315.21.69.825.57C20.565 21.796 24 17.3 24 12c0-6.627-5.373-12-12-12z"/>
+                    </svg>
+                    Source code
+                  </a>
+                  <a
+                    href="https://github.com/jonathanwalker/SQLChef/actions"
+                    target="_blank"
+                    rel="noopener"
+                    class="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                  >
+                    Build logs
+                  </a>
+                </div>
+              </div>
+            </template>
           </div>
         </div>
 
@@ -150,6 +178,34 @@
     </header>
 
     <Interface ref="interface" :history-item="selectedHistoryItem" @query-ran="onQueryRan" />
+
+    <!-- Integrity failure overlay — blocks all interaction with the app -->
+    <div
+      v-if="dbState === 'failed'"
+      class="fixed inset-0 z-40 flex items-center justify-center bg-white/80 dark:bg-zinc-950/80 backdrop-blur-sm"
+    >
+      <div class="max-w-sm w-full mx-4 bg-white dark:bg-zinc-900 border border-red-200 dark:border-red-800 rounded-2xl shadow-2xl p-8 text-center">
+        <div class="flex justify-center mb-4">
+          <div class="p-3 bg-red-50 dark:bg-red-950/50 rounded-full">
+            <svg class="h-8 w-8 text-red-500" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm1 13h-2v-2h2v2zm0-4h-2V7h2v4z"/>
+            </svg>
+          </div>
+        </div>
+        <h2 class="text-base font-bold text-red-600 dark:text-red-400 mb-2">Integrity Check Failed</h2>
+        <p class="text-sm text-gray-600 dark:text-zinc-400 mb-2 leading-relaxed">
+          The DuckDB WASM file did not match its expected fingerprint and may have been tampered with.
+        </p>
+        <p class="text-sm font-semibold text-gray-800 dark:text-zinc-200 mb-6">Do not use this session.</p>
+        <button
+          @click="reloadPage"
+          class="px-5 py-2 bg-red-600 hover:bg-red-500 text-white text-sm font-medium rounded-lg transition-colors duration-150"
+        >
+          Reload page
+        </button>
+      </div>
+    </div>
+
     <HistoryModal v-if="showHistory" :history="queryHistory" @close="showHistory = false" @restore="restoreItem" @delete-item="deleteHistoryItem" @clear-history="clearHistory" />
   </div>
 </template>
@@ -242,6 +298,7 @@ export default {
       if (idx !== -1) this.queryHistory.splice(idx, 1);
     },
     clearHistory() { this.queryHistory = []; localStorage.removeItem("sqlchef-history"); },
+    reloadPage() { window.location.reload(); },
   },
 };
 </script>
