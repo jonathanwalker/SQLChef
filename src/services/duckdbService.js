@@ -103,9 +103,82 @@ async function buildVerifiedBlobUrls() {
   return cachedBlobs;
 }
 
+// Apache Arrow TimeUnit constants (SECOND=0, MILLISECOND=1, MICROSECOND=2, NANOSECOND=3)
+const TimeUnit = { SECOND: 0, MILLISECOND: 1, MICROSECOND: 2, NANOSECOND: 3 };
+
+/**
+ * Build a per-column converter based on the Arrow schema type, or null if no
+ * conversion is needed. This runs once per query, not once per row/cell.
+ *
+ * Why this matters: DuckDB returns both BIGINT *and* TIMESTAMP columns as JS
+ * BigInt. Without schema-level type info we'd have to guess from value ranges,
+ * which causes COUNT() results (small integers) to be misidentified as dates.
+ * The Arrow schema tells us definitively which columns are timestamps.
+ *
+ * DuckDB DATE columns come back as plain Int32 (days since epoch) — also not
+ * human-readable without conversion.
+ */
+function buildColumnConverter(field) {
+    const typeStr = field.type?.toString() ?? '';
+
+    // Timestamp<MICROSECOND>, Timestamp<SECOND>, etc.
+    if (typeStr.startsWith('Timestamp')) {
+        const unit = field.type.unit ?? TimeUnit.MICROSECOND;
+        return (value) => {
+            if (value == null) return null;
+            try {
+                if (typeof value === 'bigint') {
+                    if (unit === TimeUnit.MICROSECOND) return new Date(Number(value / 1000n));
+                    if (unit === TimeUnit.NANOSECOND)  return new Date(Number(value / 1_000_000n));
+                    // SECOND or MILLISECOND as bigint (unusual but handle it)
+                    return new Date(Number(value) * (unit === TimeUnit.SECOND ? 1000 : 1));
+                } else {
+                    if (unit === TimeUnit.SECOND)      return new Date(value * 1000);
+                    if (unit === TimeUnit.MILLISECOND) return new Date(value);
+                    return new Date(value);
+                }
+            } catch { return value; }
+        };
+    }
+
+    // DateDay (Int32 days since Unix epoch)
+    if (typeStr === 'DateDay') {
+        return (value) => {
+            if (value == null) return null;
+            try { return new Date(value * 86_400_000); } catch { return value; }
+        };
+    }
+
+    // DateMillisecond (rare, but handle it)
+    if (typeStr === 'DateMillisecond') {
+        return (value) => {
+            if (value == null) return null;
+            try { return new Date(value); } catch { return value; }
+        };
+    }
+
+    return null; // no conversion — includes BIGINT, INTEGER, VARCHAR, etc.
+}
+
 function arrowTableToObjects(arrowTable) {
-  const arrowRows = arrowTable.toArray();
-  return arrowRows.map((row) => row.toJSON());
+    const fields = arrowTable.schema.fields;
+    const rows = arrowTable.toArray();
+
+    // Pre-build converters once per query result (not once per cell)
+    const converters = fields.map(buildColumnConverter);
+    const hasConverters = converters.some(Boolean);
+
+    return rows.map((row) => {
+        const obj = row.toJSON();
+        if (hasConverters) {
+            for (let i = 0; i < fields.length; i++) {
+                if (converters[i] !== null) {
+                    obj[fields[i].name] = converters[i](obj[fields[i].name]);
+                }
+            }
+        }
+        return obj;
+    });
 }
 
 /**

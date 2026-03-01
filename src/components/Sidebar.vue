@@ -58,8 +58,32 @@
                             />
                         </div>
                         <!-- Display state -->
-                        <div v-else class="flex-1 truncate text-xs text-gray-700 dark:text-gray-300" :title="col.column_name">
-                            {{ col.column_name }}
+                        <div v-else class="flex-1 min-w-0 flex items-center gap-1.5 overflow-hidden"
+                            :title="columnTypes[col.column_name] ? `${col.column_name} — ${columnTypes[col.column_name]}` : col.column_name">
+                            <span class="truncate text-xs text-gray-700 dark:text-gray-300">{{ col.column_name }}</span>
+                            <template v-if="columnTypes[col.column_name]">
+                                <!-- Inline cast select -->
+                                <select
+                                    v-if="castingIndex === index"
+                                    data-cast-select
+                                    class="shrink-0 text-xs font-mono bg-gray-100 dark:bg-gray-800 border border-gray-400 dark:border-gray-500 rounded px-1 py-0 ml-auto text-gray-700 dark:text-gray-200 focus:outline-none cursor-pointer"
+                                    @change="onCastChange(index, col.column_name, $event.target.value)"
+                                    @blur="castingIndex = null"
+                                    @keydown.esc="castingIndex = null"
+                                >
+                                    <option value="" disabled selected>Cast to…</option>
+                                    <option v-for="t in castTypes" :key="t" :value="t">{{ t }}</option>
+                                </select>
+                                <!-- Type badge — click to cast -->
+                                <span
+                                    v-else
+                                    class="shrink-0 text-xs font-mono text-gray-400 dark:text-gray-600 ml-auto cursor-pointer hover:text-gray-600 dark:hover:text-gray-400 transition-colors duration-100"
+                                    :title="`${columnTypes[col.column_name]} — click to cast`"
+                                    @click.stop="startCast(index)"
+                                >
+                                    {{ abbreviateType(columnTypes[col.column_name]) }}
+                                </span>
+                            </template>
                         </div>
                         <!-- Pencil icon -->
                         <span
@@ -235,6 +259,7 @@ export default {
         uploadDate: { type: String, required: true },
         fileRowCount: { type: [Number, String], default: null },
         fileColumns: { type: Array, required: true },
+        columnTypes: { type: Object, default: () => ({}) },
         csvOptions: { type: Object, required: true },
         jsonOptions: { type: Object, required: true },
         importError: { type: String, default: null },
@@ -247,6 +272,8 @@ export default {
             dropDepth: 0,
             showAdvancedCsv: false,
             localColumns: [],
+            castingIndex: null,
+            castTypes: ['VARCHAR', 'INTEGER', 'BIGINT', 'DOUBLE', 'BOOLEAN', 'DATE', 'TIMESTAMP', 'JSON', 'BLOB'],
         };
     },
     computed: {
@@ -265,6 +292,27 @@ export default {
         },
     },
     methods: {
+        abbreviateType(type) {
+            if (!type) return '';
+            const upper = type.toUpperCase();
+            const map = {
+                'VARCHAR': 'str', 'TEXT': 'str', 'CHAR': 'str', 'STRING': 'str',
+                'INTEGER': 'int', 'INT': 'int', 'INT4': 'int', 'SIGNED': 'int',
+                'BIGINT': 'bigint', 'INT8': 'bigint', 'LONG': 'bigint', 'HUGEINT': 'hugeint',
+                'SMALLINT': 'int16', 'TINYINT': 'int8', 'UBIGINT': 'uint64',
+                'UINTEGER': 'uint32', 'USMALLINT': 'uint16', 'UTINYINT': 'uint8',
+                'DOUBLE': 'float64', 'FLOAT': 'float32', 'REAL': 'float32', 'DECIMAL': 'decimal',
+                'BOOLEAN': 'bool', 'BOOL': 'bool',
+                'DATE': 'date',
+                'TIMESTAMP': 'timestamp', 'TIMESTAMP WITH TIME ZONE': 'timestamptz',
+                'TIMESTAMP_S': 'timestamp', 'TIMESTAMP_MS': 'timestamp', 'TIMESTAMP_NS': 'timestamp',
+                'TIME': 'time', 'INTERVAL': 'interval',
+                'BLOB': 'blob', 'BYTEA': 'blob',
+                'UUID': 'uuid', 'JSON': 'json',
+            };
+            // Try exact match first, then strip type parameters for things like DECIMAL(10,2)
+            return map[upper] || map[upper.replace(/\(.*\)$/, '').trim()] || type.toLowerCase().replace(/\(.*\)$/, '');
+        },
         formatFileSize(bytes) {
             if (bytes === 0) return "0 Bytes";
             const k = 1024;
@@ -332,8 +380,23 @@ export default {
             }
         },
         startEdit(index) {
+            this.castingIndex = null;
             this.localColumns.forEach((c) => (c.isEditing = false));
             this.localColumns[index].isEditing = true;
+        },
+        startCast(index) {
+            this.localColumns.forEach((c) => (c.isEditing = false));
+            this.castingIndex = index;
+            this.$nextTick(() => {
+                const el = this.$el.querySelector('[data-cast-select]');
+                if (el) el.focus();
+            });
+        },
+        onCastChange(index, columnName, newType) {
+            this.castingIndex = null;
+            if (newType) {
+                this.$emit('cast-column', { columnName, newType });
+            }
         },
         finishEdit(index) {
             const col = this.localColumns[index];

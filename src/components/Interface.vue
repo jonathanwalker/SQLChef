@@ -10,9 +10,10 @@
             <!-- SIDEBAR -->
             <Sidebar v-if="currentFile" :currentFile="currentFile" :fileExtension="fileExtension"
                 :uploadDate="uploadDate" :fileRowCount="fileRowCount" :fileColumns="fileColumns"
-                :csvOptions="csvOptions" :jsonOptions="jsonOptions" :importError="importError"
-                :isLoadingFile="isLoadingFile" @recreate-table="recreateTable" @file-selected="handleFileSelect"
-                @rename-column="handleColumnRename" />
+                :columnTypes="columnTypes" :csvOptions="csvOptions" :jsonOptions="jsonOptions"
+                :importError="importError" :isLoadingFile="isLoadingFile"
+                @recreate-table="recreateTable" @file-selected="handleFileSelect"
+                @rename-column="handleColumnRename" @cast-column="handleColumnCast" />
 
             <!-- MAIN: Query Editor + Results -->
             <div class="flex-1 flex flex-col overflow-hidden">
@@ -83,6 +84,7 @@ export default {
             uploadTimestamp: null,
             dbInitialized: false,
             queryStats: null,
+            columnTypes: {}, // map of column_name → DuckDB type from DESCRIBE
         };
     },
     computed: {
@@ -154,6 +156,7 @@ export default {
             this.isLoadingFile = true;
             this.fileColumns = [];
             this.fileRowCount = null;
+            this.columnTypes = {};
 
             try {
                 await resetDuckDB();
@@ -247,6 +250,16 @@ export default {
             }
 
             if (sql) await executeQuery(sql);
+
+            // Fetch column schema for display in the sidebar
+            try {
+                const described = await executeQuery(`DESCRIBE ${this.quotedTableName}`);
+                this.columnTypes = Object.fromEntries(
+                    described.map(r => [r.column_name, r.column_type])
+                );
+            } catch {
+                this.columnTypes = {};
+            }
         },
 
         async runQuery() {
@@ -314,6 +327,25 @@ export default {
             URL.revokeObjectURL(url);
         },
 
+        async handleColumnCast({ columnName, newType }) {
+            try {
+                await executeQuery(`
+                    ALTER TABLE ${this.quotedTableName}
+                    ALTER COLUMN "${columnName.replace(/"/g, '""')}"
+                    TYPE ${newType};
+                `);
+                // Refresh schema after cast
+                const described = await executeQuery(`DESCRIBE ${this.quotedTableName}`);
+                this.columnTypes = Object.fromEntries(
+                    described.map(r => [r.column_name, r.column_type])
+                );
+                await this.runQuery();
+            } catch (err) {
+                console.error("Error casting column:", err);
+                this.importError = `Cannot cast "${columnName}" to ${newType}: ${err.message}`;
+            }
+        },
+
         async handleColumnRename({ oldName, newName }) {
             if (!newName || !oldName) return;
             if (newName.trim() === "" || newName === oldName) return;
@@ -323,6 +355,11 @@ export default {
                     RENAME COLUMN "${oldName.replace(/"/g, '""')}"
                     TO "${newName.replace(/"/g, '""')}";
                 `);
+                // Keep columnTypes in sync with the rename
+                if (this.columnTypes[oldName] !== undefined) {
+                    this.columnTypes[newName] = this.columnTypes[oldName];
+                    delete this.columnTypes[oldName];
+                }
                 await this.runQuery();
             } catch (err) {
                 console.error("Error renaming column:", err);
