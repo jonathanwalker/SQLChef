@@ -1,5 +1,5 @@
 <template>
-    <div class="flex-1 flex flex-col items-center justify-center p-8 bg-gray-50 dark:bg-zinc-950">
+    <div class="flex-1 flex flex-col items-center justify-center p-8 bg-gray-50 dark:bg-zinc-900">
 
         <!-- Drop Zone -->
         <div

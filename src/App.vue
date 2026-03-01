@@ -15,7 +15,7 @@
             :title="dbState === 'failed' ? 'Integrity check FAILED — do not use this session.' : undefined"
             class="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-colors duration-150"
             :class="{
-              'text-emerald-600 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-950/50 hover:bg-emerald-100 dark:hover:bg-emerald-950 cursor-pointer': dbState === 'verified',
+              'text-emerald-600 bg-emerald-50 dark:text-emerald-500 dark:bg-emerald-950/60 hover:bg-emerald-100 dark:hover:bg-emerald-950/80 cursor-pointer': dbState === 'verified',
               'text-red-600 bg-red-50 dark:text-red-400 dark:bg-red-950/50 cursor-pointer': dbState === 'failed',
               'text-gray-400 dark:text-zinc-500 animate-pulse cursor-default': dbState === 'loading',
             }"
@@ -69,7 +69,7 @@
               <!-- Title + version -->
               <div class="flex items-center justify-between mb-3">
                 <div class="flex items-center gap-2">
-                  <svg class="h-4 w-4 text-emerald-500 dark:text-emerald-400 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                  <svg class="h-4 w-4 text-emerald-500 dark:text-emerald-600 shrink-0" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/>
                   </svg>
                   <span class="text-sm font-semibold text-gray-900 dark:text-zinc-100">DuckDB Verified</span>
@@ -154,12 +154,12 @@
                   Fetching duckdb-wasm@{{ duckdbVersion }} from CDN…
                 </div>
 
-                <div v-else-if="idsState === 'match'" class="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/50 rounded-md text-xs text-emerald-700 dark:text-emerald-400">
+                <div v-else-if="idsState === 'match'" class="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900 rounded-md text-xs text-emerald-700 dark:text-emerald-500">
                   <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
                   </svg>
                   <span class="flex-1">Matches npm@{{ duckdbVersion }}</span>
-                  <button @click="runIdsCheck" title="Re-check" class="text-emerald-500 hover:text-emerald-700 dark:hover:text-emerald-300 transition-colors text-base leading-none">↺</button>
+                  <button @click="runIdsCheck" title="Re-check" class="text-emerald-500 dark:text-emerald-600 hover:text-emerald-700 dark:hover:text-emerald-400 transition-colors text-base leading-none">↺</button>
                 </div>
 
                 <div v-else-if="idsState === 'mismatch'" class="flex items-center gap-2 px-3 py-1.5 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/50 rounded-md text-xs text-red-600 dark:text-red-400">

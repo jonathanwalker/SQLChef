@@ -36,7 +36,7 @@
                                 <div class="flex items-center gap-1">
                                     <span>{{ header }}</span>
                                     <!-- Sort indicator -->
-                                    <span class="w-3 shrink-0 text-gray-400 dark:text-gray-500">
+                                    <span class="w-3 shrink-0 text-gray-400 dark:text-zinc-500">
                                         <svg v-if="sortColIdx === idx && sortDir === 'asc'" xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 24 24" fill="currentColor">
                                             <path d="M12 4l8 16H4L12 4z"/>
                                         </svg>
@@ -61,7 +61,7 @@
                                 class="px-3 py-2 text-sm border-b border-gray-200/50 dark:border-zinc-800/50 whitespace-nowrap cursor-pointer transition-colors duration-75"
                                 :class="[
                                     cell == null ? 'text-gray-400 dark:text-zinc-600 italic' : 'text-gray-700 dark:text-zinc-300',
-                                    copiedKey === `${rowIndex}-${cellIndex}` ? 'bg-emerald-50 dark:bg-emerald-950/40 !text-emerald-700 dark:!text-emerald-300' : '',
+                                    copiedKey === `${rowIndex}-${cellIndex}` ? 'bg-emerald-50 dark:bg-emerald-950/50 !text-emerald-700 dark:!text-emerald-400' : '',
                                 ]"
                                 :title="cell == null ? '' : 'Click to copy'"
                                 @click="copyCell(rowIndex, cellIndex, cell)"

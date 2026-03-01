@@ -13,7 +13,7 @@
                     class="group relative flex items-center gap-1.5 px-3 py-2 shrink-0 text-xs border-b-2 cursor-pointer transition-colors duration-100"
                     style="max-width: 180px; min-width: 80px"
                     :class="s.id === activeSessionId
-                        ? 'border-emerald-500 text-gray-900 dark:text-zinc-100 bg-gray-50 dark:bg-zinc-900'
+                        ? 'border-emerald-500 dark:border-emerald-700 text-gray-900 dark:text-zinc-100 bg-gray-50 dark:bg-zinc-900'
                         : 'border-transparent text-gray-500 dark:text-zinc-500 hover:text-gray-700 dark:hover:text-zinc-300 hover:bg-gray-50 dark:hover:bg-zinc-900'"
                     @click="renamingSessionId !== s.id && switchSession(s.id)"
                     @keydown.enter="switchSession(s.id)"

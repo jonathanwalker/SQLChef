@@ -4,7 +4,7 @@
         <div class="flex items-center gap-2 px-3 py-2 bg-gray-50 dark:bg-zinc-900 border-b border-gray-200 dark:border-zinc-800">
             <!-- Run button -->
             <button
-                class="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium rounded-md transition-colors duration-150 disabled:opacity-75"
+                class="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 dark:bg-emerald-700 dark:hover:bg-emerald-600 text-white text-sm font-medium rounded-md transition-colors duration-150 disabled:opacity-75"
                 :disabled="isLoading"
                 @click="$emit('run-query')"
                 title="Run Query"

@@ -9,9 +9,9 @@
                 </span>
                 <span class="shrink-0 px-1.5 py-0.5 rounded text-xs font-semibold uppercase tracking-wide"
                     :class="{
-                        'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/60 dark:text-emerald-300': ['csv','tsv','txt'].includes(fileExtension),
-                        'bg-blue-100 text-blue-700 dark:bg-blue-900/60 dark:text-blue-300': fileExtension === 'json' || fileExtension === 'ndjson',
-                        'bg-purple-100 text-purple-700 dark:bg-purple-900/60 dark:text-purple-300': fileExtension === 'parquet',
+                        'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/70 dark:text-emerald-400': ['csv','tsv','txt'].includes(fileExtension),
+                        'bg-blue-100 text-blue-700 dark:bg-blue-950/70 dark:text-blue-400': fileExtension === 'json' || fileExtension === 'ndjson',
+                        'bg-purple-100 text-purple-700 dark:bg-purple-950/70 dark:text-purple-400': fileExtension === 'parquet',
                         'bg-gray-100 text-gray-600 dark:bg-zinc-800 dark:text-zinc-400': !['csv','tsv','txt','json','ndjson','parquet'].includes(fileExtension),
                     }">
                     {{ fileExtension }}
@@ -181,7 +181,7 @@
                     </transition>
 
                     <button
-                        class="mt-3 w-full px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium rounded-md transition-colors duration-150"
+                        class="mt-3 w-full px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 dark:bg-emerald-700 dark:hover:bg-emerald-600 text-white text-sm font-medium rounded-md transition-colors duration-150"
                         @click="$emit('recreate-table')">
                         Re-Parse
                     </button>
