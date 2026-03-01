@@ -1,22 +1,21 @@
 import * as duckdb from "@duckdb/duckdb-wasm";
 
-const ALL_BUNDLES = duckdb.getJsDelivrBundles();
+const BASE = import.meta.env.BASE_URL;
+
+const MANUAL_BUNDLES = {
+  mvp: {
+    mainModule: `${BASE}duckdb/duckdb-mvp.wasm`,
+    mainWorker: `${BASE}duckdb/duckdb-browser-mvp.worker.js`,
+  },
+  eh: {
+    mainModule: `${BASE}duckdb/duckdb-eh.wasm`,
+    mainWorker: `${BASE}duckdb/duckdb-browser-eh.worker.js`,
+  },
+};
 
 let db = null;
 let connection = null;
 let initializing = null; // Flag to track initialization
-
-function pickExtendedBundle(bundles) {
-  // Try extended bundles first
-  if (bundles.eh_parallel) {
-    return bundles.eh_parallel;
-  }
-  if (bundles.eh) {
-    return bundles.eh;
-  }
-  // Fallback to the default
-  return duckdb.selectBundle(bundles);
-}
 
 function arrowTableToObjects(arrowTable) {
   const arrowRows = arrowTable.toArray();
@@ -38,22 +37,13 @@ export async function initDuckDB() {
 
   // Otherwise, begin the async init
   initializing = (async () => {
-    const chosen = pickExtendedBundle(ALL_BUNDLES);
+    const bundle = await duckdb.selectBundle(MANUAL_BUNDLES);
 
-    // Create a Worker from the mainWorker URL
-    const workerUrl = URL.createObjectURL(
-      new Blob([`importScripts("${chosen.mainWorker}");`], {
-        type: "text/javascript",
-      })
-    );
-    const worker = new Worker(workerUrl);
-    URL.revokeObjectURL(workerUrl);
-
+    const worker = new Worker(bundle.mainWorker);
     const logger = new duckdb.ConsoleLogger();
     db = new duckdb.AsyncDuckDB(logger, worker);
 
-    // Instantiate the engine with mainModule + optional pthread
-    await db.instantiate(chosen.mainModule, chosen.pthreadWorker);
+    await db.instantiate(bundle.mainModule, bundle.pthreadWorker);
 
     // Create a single connection
     connection = await db.connect();
@@ -61,7 +51,7 @@ export async function initDuckDB() {
     return { db, connection };
   })();
 
-  // After initialization completes, clear the “initializing” flag
+  // After initialization completes, clear the "initializing" flag
   try {
     const result = await initializing;
     return result;
