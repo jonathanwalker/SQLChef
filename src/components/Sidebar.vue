@@ -9,10 +9,10 @@
                 </span>
                 <span class="shrink-0 px-1.5 py-0.5 rounded text-xs font-semibold uppercase tracking-wide"
                     :class="{
-                        'bg-emerald-900/60 text-emerald-400': ['csv','tsv','txt'].includes(fileExtension),
-                        'bg-blue-900/60 text-blue-400': fileExtension === 'json' || fileExtension === 'ndjson',
-                        'bg-purple-900/60 text-purple-400': fileExtension === 'parquet',
-                        'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400': !['csv','tsv','txt','json','ndjson','parquet'].includes(fileExtension),
+                        'bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300': ['csv','tsv','txt'].includes(fileExtension),
+                        'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300': fileExtension === 'json' || fileExtension === 'ndjson',
+                        'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300': fileExtension === 'parquet',
+                        'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400': !['csv','tsv','txt','json','ndjson','parquet'].includes(fileExtension),
                     }">
                     {{ fileExtension }}
                 </span>
