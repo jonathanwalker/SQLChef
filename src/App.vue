@@ -11,7 +11,7 @@
         <!-- DuckDB integrity badge + popover -->
         <div ref="securityBadge" class="relative" @click.stop>
           <button
-            @click="dbState !== 'loading' && (showSecurityPopover = !showSecurityPopover)"
+            @click="toggleSecurityPopover"
             :title="dbState === 'failed' ? 'Integrity check FAILED — do not use this session.' : undefined"
             class="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-colors duration-150"
             :class="{
@@ -27,7 +27,7 @@
                 d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm1 13h-2v-2h2v2zm0-4h-2V7h2v4z" />
               <path v-else d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z" />
             </svg>
-            <span v-if="dbState === 'verified'">Verified local</span>
+            <span v-if="dbState === 'verified'">Verified</span>
             <span v-else-if="dbState === 'failed'">Tampered!</span>
           </button>
 
@@ -66,28 +66,34 @@
 
             <!-- VERIFIED state -->
             <template v-else>
-              <!-- Title -->
-              <div class="flex items-center gap-2 mb-3">
-                <svg class="h-4 w-4 text-emerald-500 dark:text-emerald-400 shrink-0" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/>
-                </svg>
-                <span class="text-sm font-semibold text-gray-900 dark:text-zinc-100">DuckDB WASM Verified</span>
+              <!-- Title + version -->
+              <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center gap-2">
+                  <svg class="h-4 w-4 text-emerald-500 dark:text-emerald-400 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/>
+                  </svg>
+                  <span class="text-sm font-semibold text-gray-900 dark:text-zinc-100">DuckDB Verified</span>
+                </div>
+                <code v-if="duckdbVersion" class="text-xs font-mono text-gray-400 dark:text-zinc-600">v{{ duckdbVersion }}</code>
               </div>
 
-              <!-- Privacy statement -->
+              <!-- Privacy -->
               <p class="text-xs text-gray-600 dark:text-zinc-400 mb-3 leading-relaxed">
-                All SQL runs entirely in this browser tab. No data is sent to any server — not even to us.
+                SQL executes entirely in this tab via WebAssembly. Files and queries never leave your device — nothing is sent to any server.
               </p>
 
-              <!-- WASM fingerprint -->
+              <!-- SHA-256 fingerprint -->
               <div v-if="wasmHash" class="mb-3">
-                <div class="text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1.5">WASM fingerprint (SHA-256)</div>
+                <div class="flex items-center justify-between mb-1.5">
+                  <span class="text-xs font-medium text-gray-500 dark:text-zinc-400">SHA-256 fingerprint</span>
+                  <code class="text-xs font-mono text-gray-400 dark:text-zinc-600">{{ wasmFile }}</code>
+                </div>
                 <div class="flex items-center gap-2 bg-gray-100 dark:bg-zinc-800 rounded-md px-2.5 py-1.5">
                   <code class="text-xs font-mono text-gray-700 dark:text-zinc-300 flex-1 truncate">{{ wasmHash.slice(7) }}</code>
                   <button
                     @click="copyWasmHash"
                     class="shrink-0 text-gray-400 hover:text-gray-700 dark:hover:text-zinc-200 transition-colors"
-                    :title="hashCopied ? 'Copied!' : 'Copy full hash'"
+                    :title="hashCopied ? 'Copied!' : 'Copy hash'"
                   >
                     <svg v-if="!hashCopied" xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                       <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
@@ -99,37 +105,110 @@
                 </div>
               </div>
 
-              <!-- How it works -->
+              <!-- Trust model -->
               <div class="mb-3">
-                <div class="text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1">How it works</div>
-                <p class="text-xs text-gray-600 dark:text-zinc-400 leading-relaxed">Expected hashes are baked into the app bundle at build time — they can't be swapped server-side. Each file is verified against those hashes before DuckDB loads. If anything doesn't match, the app refuses to run.</p>
+                <div class="text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1">Trust model</div>
+                <p class="text-xs text-gray-600 dark:text-zinc-400 leading-relaxed">Expected SHA-256 hashes are compiled into the JS bundle at build time and cannot be altered server-side independently. Every WASM and worker file is verified via <code class="font-mono">WebCrypto</code> before DuckDB initialises — a mismatch aborts loading entirely.</p>
+              </div>
+
+              <!-- CDN verification (IDS) -->
+              <div class="border-t border-gray-200 dark:border-zinc-700 pt-3 mb-3">
+                <div class="flex items-center justify-between mb-2">
+                  <span class="text-xs font-medium text-gray-500 dark:text-zinc-400">CDN verification</span>
+                  <kbd class="text-xs font-mono text-gray-400 dark:text-zinc-600 bg-gray-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded border border-gray-200 dark:border-zinc-700">⇧V</kbd>
+                </div>
+
+                <!-- Technical metadata -->
+                <div class="rounded-md bg-gray-50 dark:bg-zinc-800/50 border border-gray-200 dark:border-zinc-700/50 px-2.5 py-2 mb-2 space-y-1 font-mono text-xs">
+                  <div class="flex gap-2">
+                    <span class="text-gray-400 dark:text-zinc-600 w-8 shrink-0">pkg</span>
+                    <span class="text-gray-600 dark:text-zinc-400">@duckdb/duckdb-wasm@{{ duckdbVersion }}</span>
+                  </div>
+                  <div class="flex gap-2">
+                    <span class="text-gray-400 dark:text-zinc-600 w-8 shrink-0">file</span>
+                    <span class="text-gray-600 dark:text-zinc-400">{{ wasmFile }}</span>
+                  </div>
+                  <div class="flex gap-2">
+                    <span class="text-gray-400 dark:text-zinc-600 w-8 shrink-0">via</span>
+                    <span class="text-gray-600 dark:text-zinc-400">cdn.jsdelivr.net · SHA-256</span>
+                  </div>
+                </div>
+
+                <!-- Action / result row — full-width so content never wraps -->
+                <button
+                  v-if="idsState === null || idsState === 'error'"
+                  @click="runIdsCheck"
+                  class="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700 border border-gray-200 dark:border-zinc-700 rounded-md text-xs text-gray-600 dark:text-zinc-400 hover:text-gray-800 dark:hover:text-zinc-200 transition-colors duration-150"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                  </svg>
+                  Verify against npm registry
+                </button>
+
+                <div v-else-if="idsState === 'checking'" class="flex items-center gap-2 px-3 py-1.5 bg-gray-50 dark:bg-zinc-800/50 border border-gray-200 dark:border-zinc-700 rounded-md text-xs text-gray-500 dark:text-zinc-500">
+                  <svg class="animate-spin h-3.5 w-3.5 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+                  </svg>
+                  Fetching duckdb-wasm@{{ duckdbVersion }} from CDN…
+                </div>
+
+                <div v-else-if="idsState === 'match'" class="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/50 rounded-md text-xs text-emerald-700 dark:text-emerald-400">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+                  </svg>
+                  <span class="flex-1">Matches npm@{{ duckdbVersion }}</span>
+                  <button @click="runIdsCheck" title="Re-check" class="text-emerald-500 hover:text-emerald-700 dark:hover:text-emerald-300 transition-colors text-base leading-none">↺</button>
+                </div>
+
+                <div v-else-if="idsState === 'mismatch'" class="flex items-center gap-2 px-3 py-1.5 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/50 rounded-md text-xs text-red-600 dark:text-red-400">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                  </svg>
+                  Hash mismatch — local file differs from npm
+                </div>
+
+                <p v-if="idsState === 'error'" class="mt-1.5 text-xs text-yellow-600 dark:text-yellow-500">{{ idsError }}</p>
+
+                <!-- Hash diff on mismatch -->
+                <div v-if="idsState === 'mismatch' && idsPublicHash" class="mt-2 rounded-md bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 px-2.5 py-2 space-y-1.5 font-mono text-xs">
+                  <div>
+                    <div class="text-gray-500 dark:text-zinc-500 mb-0.5">Local (this session)</div>
+                    <code class="text-gray-700 dark:text-zinc-300 break-all">{{ wasmHash?.slice(7) }}</code>
+                  </div>
+                  <div>
+                    <div class="text-gray-500 dark:text-zinc-500 mb-0.5">CDN (npm@{{ duckdbVersion }})</div>
+                    <code class="text-red-600 dark:text-red-400 break-all">{{ idsPublicHash.slice(7) }}</code>
+                  </div>
+                </div>
               </div>
 
               <!-- Build provenance -->
               <div class="border-t border-gray-200 dark:border-zinc-700 pt-3">
                 <div class="text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1.5">Build provenance</div>
-                <p class="text-xs text-gray-600 dark:text-zinc-400 mb-2 leading-relaxed">Built from public source on GitHub Actions with <code class="font-mono">npm ci</code> (pinned dependencies), then deployed directly to GitHub Pages — no intermediate steps or third-party CDNs.</p>
+                <p class="text-xs text-gray-600 dark:text-zinc-400 mb-2 leading-relaxed">Built from public source on GitHub Actions with <code class="font-mono">npm ci</code> (pinned deps), deployed directly to GitHub Pages — no intermediate steps or third-party CDNs.</p>
                 <div class="flex items-center gap-3">
-                  <a
-                    href="https://github.com/jonathanwalker/SQLChef"
-                    target="_blank"
-                    rel="noopener"
-                    class="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline"
-                  >
+                  <a href="https://github.com/jonathanwalker/SQLChef" target="_blank" rel="noopener" class="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M12 0C5.373 0 0 5.373 0 12c0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 17.07 3.633 16.7 3.633 16.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.807 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.333-5.466-5.93 0-1.31.468-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23a11.52 11.52 0 013.003-.404c1.02.005 2.045.138 3.003.404 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.21 0 1.596-.015 2.877-.015 3.27 0 .315.21.69.825.57C20.565 21.796 24 17.3 24 12c0-6.627-5.373-12-12-12z"/>
                     </svg>
                     Source code
                   </a>
-                  <a
-                    href="https://github.com/jonathanwalker/SQLChef/actions"
-                    target="_blank"
-                    rel="noopener"
-                    class="text-xs text-blue-600 dark:text-blue-400 hover:underline"
-                  >
-                    Build logs
-                  </a>
+                  <a href="https://github.com/jonathanwalker/SQLChef/actions" target="_blank" rel="noopener" class="text-xs text-blue-600 dark:text-blue-400 hover:underline">Build logs</a>
                 </div>
+              </div>
+
+              <!-- Developer: simulate tampered WASM -->
+              <div class="border-t border-gray-200 dark:border-zinc-700 pt-3 mt-1">
+                <div class="text-xs font-medium text-gray-400 dark:text-zinc-600 mb-1.5">Developer</div>
+                <button
+                  @click="simulateTamper"
+                  class="w-full text-left px-2.5 py-1.5 rounded-md text-xs text-amber-700 dark:text-amber-500 bg-amber-50 dark:bg-amber-950/30 hover:bg-amber-100 dark:hover:bg-amber-950/60 border border-amber-200 dark:border-amber-800/50 transition-colors duration-150"
+                >
+                  Simulate tampered WASM →
+                </button>
+                <p class="mt-1.5 text-xs text-gray-400 dark:text-zinc-600 leading-relaxed">Triggers the tamper-detected UI without modifying any files. Reload to reset.</p>
               </div>
             </template>
           </div>
@@ -213,7 +292,7 @@
 <script>
 import Interface from "./components/Interface.vue";
 import HistoryModal from "./components/HistoryModal.vue";
-import { initDuckDB } from "@/services/duckdbService";
+import { initDuckDB, getWasmInfo, computeSHA256SRI } from "@/services/duckdbService";
 
 function safeStringify(obj) {
   return JSON.stringify(obj, (key, value) =>
@@ -234,12 +313,18 @@ export default {
       dbInitialized: false,
       dbState: 'loading',
       wasmHash: null,
+      wasmFile: null,
+      duckdbVersion: null,
+      idsState: null,   // null | 'checking' | 'match' | 'mismatch' | 'error'
+      idsPublicHash: null,
+      idsError: null,
       basePath: import.meta.env.BASE_URL,
       theme: localStorage.getItem('sqlchef-theme') || 'light',
     };
   },
   async mounted() {
     document.addEventListener('click', this.onDocumentClick);
+    document.addEventListener('keydown', this.onGlobalKeydown);
     this.applyTheme(this.theme);
     const saved = localStorage.getItem("sqlchef-history");
     if (saved) {
@@ -250,6 +335,9 @@ export default {
       this.dbInitialized = true;
       this.dbState = 'verified';
       this.wasmHash = wasmHash;
+      const info = getWasmInfo();
+      this.wasmFile = info.wasmFile;
+      this.duckdbVersion = info.version;
     } catch (err) {
       console.error("Failed to initialize DuckDB in App.vue:", err);
       this.dbState = 'failed';
@@ -258,6 +346,7 @@ export default {
   },
   beforeUnmount() {
     document.removeEventListener('click', this.onDocumentClick);
+    document.removeEventListener('keydown', this.onGlobalKeydown);
   },
   watch: {
     queryHistory: {
@@ -268,6 +357,18 @@ export default {
   methods: {
     onDocumentClick() {
       this.showSecurityPopover = false;
+    },
+    onGlobalKeydown(e) {
+      const tag = document.activeElement?.tagName;
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(tag)) return;
+      if (e.shiftKey && e.key.toLowerCase() === 'v' && this.dbState === 'verified') {
+        e.preventDefault();
+        this.showSecurityPopover = true;
+        this.idsState = null;
+        this.idsPublicHash = null;
+        this.idsError = null;
+        this.$nextTick(() => this.runIdsCheck());
+      }
     },
     copyWasmHash() {
       if (!this.wasmHash) return;
@@ -299,6 +400,42 @@ export default {
     },
     clearHistory() { this.queryHistory = []; localStorage.removeItem("sqlchef-history"); },
     reloadPage() { window.location.reload(); },
+    toggleSecurityPopover() {
+      if (this.dbState === 'loading') return;
+      this.showSecurityPopover = !this.showSecurityPopover;
+      // Reset IDS state each time the popover opens so the user gets a fresh check
+      if (this.showSecurityPopover) {
+        this.idsState = null;
+        this.idsPublicHash = null;
+        this.idsError = null;
+      }
+    },
+    simulateTamper() {
+      this.showSecurityPopover = false;
+      this.dbState = 'failed';
+    },
+    async runIdsCheck() {
+      this.idsState = 'checking';
+      this.idsPublicHash = null;
+      this.idsError = null;
+      try {
+        const { wasmFile, wasmHash, version } = getWasmInfo();
+        if (!wasmFile || !wasmHash || !version) {
+          throw new Error('WASM info not available — has DuckDB finished loading?');
+        }
+        const cdnUrl = `https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@${version}/dist/${wasmFile}`;
+        const res = await fetch(cdnUrl);
+        if (!res.ok) throw new Error(`CDN fetch failed: HTTP ${res.status}`);
+        const buffer = await res.arrayBuffer();
+        const publicHash = await computeSHA256SRI(buffer);
+        this.idsPublicHash = publicHash;
+        this.idsState = publicHash === wasmHash ? 'match' : 'mismatch';
+      } catch (err) {
+        console.error('IDS check error:', err);
+        this.idsState = 'error';
+        this.idsError = err.message;
+      }
+    },
   },
 };
 </script>

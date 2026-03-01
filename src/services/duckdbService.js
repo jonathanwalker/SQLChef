@@ -23,7 +23,7 @@ let initializing = null;
 
 // Cached blob URLs survive resetDuckDB() — the files on disk haven't changed,
 // so we verify once and reuse the blobs for subsequent inits.
-let cachedBlobs = null; // { mainModule, mainWorker, pthreadWorker, wasmHash }
+let cachedBlobs = null; // { mainModule, mainWorker, pthreadWorker, wasmHash, wasmFile }
 
 /**
  * Verify an ArrayBuffer against a sha256-<base64> SRI hash.
@@ -99,6 +99,7 @@ async function buildVerifiedBlobUrls() {
     mainWorker: mainWorkerBlob,
     pthreadWorker: bundle.pthreadWorker ?? null,
     wasmHash: EXPECTED[wasmFile], // sha256-<base64> — shown in UI tooltip
+    wasmFile: wasmFile,           // e.g. "duckdb-eh.wasm" — used for CDN IDS check
   };
   return cachedBlobs;
 }
@@ -240,6 +241,28 @@ export async function closeDuckDB() {
     await db.terminate();
     db = null;
   }
+}
+
+/**
+ * Returns metadata about the loaded WASM for display and IDS verification.
+ */
+export function getWasmInfo() {
+  return {
+    wasmFile: cachedBlobs?.wasmFile ?? null,
+    wasmHash: cachedBlobs?.wasmHash ?? null,
+    version:  EXPECTED._version ?? null,
+  };
+}
+
+/**
+ * Compute a sha256-<base64> SRI hash for an arbitrary ArrayBuffer.
+ * Used by the independent verification (IDS) check in the UI.
+ */
+export async function computeSHA256SRI(buffer) {
+  const bytes = new Uint8Array(await crypto.subtle.digest('SHA-256', buffer));
+  let binary = '';
+  for (const b of bytes) binary += String.fromCharCode(b);
+  return `sha256-${btoa(binary)}`;
 }
 
 /**
