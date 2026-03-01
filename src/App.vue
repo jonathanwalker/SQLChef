@@ -150,7 +150,7 @@
     </header>
 
     <Interface ref="interface" :history-item="selectedHistoryItem" @query-ran="onQueryRan" />
-    <HistoryModal v-if="showHistory" :history="queryHistory" @close="showHistory = false" @restore="restoreItem" @clear-history="clearHistory" />
+    <HistoryModal v-if="showHistory" :history="queryHistory" @close="showHistory = false" @restore="restoreItem" @delete-item="deleteHistoryItem" @clear-history="clearHistory" />
   </div>
 </template>
 
@@ -234,9 +234,13 @@ export default {
     },
     toggleHistory() { this.showHistory = !this.showHistory; },
     onQueryRan({ query, results }) {
-      this.queryHistory.push({ query, results, timestamp: new Date().toLocaleString() });
+      this.queryHistory.push({ query, results, timestamp: Date.now() });
     },
     restoreItem(item) { this.selectedHistoryItem = item; this.showHistory = false; },
+    deleteHistoryItem(item) {
+      const idx = this.queryHistory.indexOf(item);
+      if (idx !== -1) this.queryHistory.splice(idx, 1);
+    },
     clearHistory() { this.queryHistory = []; localStorage.removeItem("sqlchef-history"); },
   },
 };

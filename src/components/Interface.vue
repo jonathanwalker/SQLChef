@@ -1,34 +1,93 @@
 <template>
-    <!-- Root container: full width & flex-grow, dark background -->
     <div class="w-full flex-1 flex flex-col overflow-hidden text-gray-800 dark:text-gray-200 bg-gray-50 dark:bg-gray-900 relative">
 
-        <!-- IF NO FILE AND NO HISTORY ITEM => show uploader -->
-        <Uploader v-if="!currentFile && !historyItem" @drop="handleDrop" @file-selected="handleFileSelect" />
+        <!-- TAB BAR -->
+        <div class="flex items-center bg-white dark:bg-gray-950 border-b border-gray-200 dark:border-gray-800 shrink-0 overflow-x-auto">
+            <button
+                v-for="s in sessions"
+                :key="s.id"
+                class="group relative flex items-center gap-1.5 px-3 py-2 shrink-0 text-xs border-b-2 transition-colors duration-100"
+                style="max-width: 180px"
+                :class="s.id === activeSessionId
+                    ? 'border-emerald-500 text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-900'
+                    : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-900'"
+                @click="switchSession(s.id)"
+            >
+                <span class="h-1.5 w-1.5 rounded-full shrink-0" :class="s.file ? extensionDot(s.fileExtension) : 'bg-gray-300 dark:bg-gray-600'"></span>
+                <span class="truncate">{{ s.file ? s.file.name : 'New Tab' }}</span>
+                <span
+                    class="shrink-0 opacity-0 group-hover:opacity-100 flex items-center justify-center h-3.5 w-3.5 rounded text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-opacity duration-100"
+                    @click.stop="closeSession(s.id)"
+                    title="Close tab"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </span>
+            </button>
 
-        <!-- ELSE (FILE SELECTED OR HISTORY ITEM SELECTED) => show main layout -->
+            <!-- Add new tab -->
+            <button
+                class="flex items-center justify-center h-7 w-7 shrink-0 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors duration-100 ml-0.5 my-1"
+                @click="addEmptySession"
+                title="Open new tab"
+            >
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+                </svg>
+            </button>
+        </div>
+
+        <!-- Uploader: active session has no file and no results -->
+        <Uploader
+            v-if="!activeSession || (!activeSession.file && !activeSession.queryResults.length)"
+            @drop="handleDrop"
+            @file-selected="handleFileSelect"
+        />
+
+        <!-- Main layout: file loaded or history results visible -->
         <div v-else class="flex-1 flex overflow-hidden">
-            <!-- SIDEBAR -->
-            <Sidebar v-if="currentFile" :currentFile="currentFile" :fileExtension="fileExtension"
-                :uploadDate="uploadDate" :fileRowCount="fileRowCount" :fileColumns="fileColumns"
-                :columnTypes="columnTypes" :csvOptions="csvOptions" :jsonOptions="jsonOptions"
-                :importError="importError" :isLoadingFile="isLoadingFile"
-                @recreate-table="recreateTable" @file-selected="handleFileSelect"
-                @rename-column="handleColumnRename" @cast-column="handleColumnCast" />
+            <Sidebar
+                v-if="activeSession.file"
+                :currentFile="activeSession.file"
+                :fileExtension="activeSession.fileExtension"
+                :uploadDate="uploadDate"
+                :fileRowCount="activeSession.fileRowCount"
+                :fileColumns="activeSession.fileColumns"
+                :columnTypes="activeSession.columnTypes"
+                :csvOptions="activeSession.csvOptions"
+                :jsonOptions="activeSession.jsonOptions"
+                :importError="activeSession.importError"
+                :isLoadingFile="activeSession.isLoadingFile"
+                @recreate-table="recreateTable"
+                @file-selected="handleFileSelect"
+                @rename-column="handleColumnRename"
+                @cast-column="handleColumnCast"
+            />
 
-            <!-- MAIN: Query Editor + Results -->
             <div class="flex-1 flex flex-col overflow-hidden">
-                <Query :query="query" :isLoading="isLoading" :queryStats="queryStats" :fileRowCount="fileRowCount"
-                    @update:query="updateQuery" @run-query="runQuery" />
-
-                <Results :queryResults="queryResults" :isLoading="isLoading" :isLoadingFile="isLoadingFile"
-                    @download-results="downloadResults" />
+                <Query
+                    :query="activeSession.query"
+                    :isLoading="activeSession.isLoading"
+                    :queryStats="activeSession.queryStats"
+                    :fileRowCount="activeSession.fileRowCount"
+                    @update:query="updateQuery"
+                    @run-query="runQuery"
+                />
+                <Results
+                    :queryResults="activeSession.queryResults"
+                    :isLoading="activeSession.isLoading"
+                    :isLoadingFile="activeSession.isLoadingFile"
+                    @download-results="downloadResults"
+                />
             </div>
         </div>
+
     </div>
 </template>
 
 <script>
-import { initDuckDB, executeQuery, resetDuckDB } from "@/services/duckdbService";
+import { initDuckDB, executeQuery } from "@/services/duckdbService";
 import { format as formatSQL } from "sql-formatter";
 import { formatCell } from "@/utils/formatCell";
 import Uploader from "./Uploader.vue";
@@ -36,104 +95,127 @@ import Sidebar from "./Sidebar.vue";
 import Query from "./Query.vue";
 import Results from "./Results.vue";
 
-function safeStringify(obj) {
-    return JSON.stringify(obj, (key, value) =>
-        typeof value === "bigint" ? value.toString() : value
-    );
+let sessionCounter = 0;
+function makeSession() {
+    return {
+        id: ++sessionCounter,
+        file: null,
+        fileExtension: "",
+        tableName: "",
+        quotedTableName: "",
+        query: "",
+        queryResults: [],
+        fileRowCount: null,
+        fileColumns: [],
+        csvOptions: { delimiter: ",", header: true, onError: "fail", quote: "\"", escape: "\"", skip: 0, comment: "" },
+        jsonOptions: { format: "auto" },
+        importError: null,
+        queryStats: null,
+        columnTypes: {},
+        uploadTimestamp: null,
+        isLoading: false,
+        isLoadingFile: false,
+    };
 }
 
 export default {
     name: "Interface",
     components: { Uploader, Sidebar, Query, Results },
     props: {
-        historyItem: {
-            type: Object,
-            default: null,
-        },
+        historyItem: { type: Object, default: null },
     },
     data() {
         return {
-            currentFile: null,
-            fileExtension: "",
-            tableName: "",
-            quotedTableName: "",
-
-            query: "",
-            queryResults: [],
-            fileRowCount: null,
-            fileColumns: [],
-
-            isLoading: false,
-            isLoadingFile: false,
-            importError: null,
-
-            csvOptions: {
-                delimiter: ",",
-                header: true,
-                onError: "fail",
-                quote: "\"",
-                escape: "\"",
-                skip: 0,
-                comment: "",
-            },
-
-            jsonOptions: {
-                format: "auto",
-            },
-
-            uploadTimestamp: null,
+            sessions: [],
+            activeSessionId: null,
             dbInitialized: false,
-            queryStats: null,
-            columnTypes: {}, // map of column_name → DuckDB type from DESCRIBE
         };
     },
     computed: {
+        activeSession() {
+            return this.sessions.find(s => s.id === this.activeSessionId) || null;
+        },
         uploadDate() {
-            if (!this.uploadTimestamp) return "N/A";
-            return new Date(this.uploadTimestamp).toLocaleString();
+            if (!this.activeSession?.uploadTimestamp) return "N/A";
+            return new Date(this.activeSession.uploadTimestamp).toLocaleString();
         },
     },
     watch: {
         historyItem(newVal) {
             if (newVal) {
-                this.query = newVal.query;
-                this.queryResults = newVal.results;
+                if (!this.activeSession) this.addEmptySession();
+                this.activeSession.query = newVal.query;
+                this.activeSession.queryResults = newVal.results;
             }
-        },
-        queryResults(newVal) {
-            localStorage.setItem("sqlchef-last-results", safeStringify(newVal));
-        },
-        query(newVal) {
-            localStorage.setItem("sqlchef-last-query", newVal || "");
         },
     },
     async mounted() {
+        this.addEmptySession();
+
         try {
             await initDuckDB();
             this.dbInitialized = true;
         } catch (err) {
             console.error("Failed to initialize DuckDB:", err);
-            this.importError = "Failed to initialize the database.";
+            this.activeSession.importError = "Failed to initialize the database.";
         }
 
-        const savedQuery = localStorage.getItem("sqlchef-last-query");
-        if (savedQuery) this.query = savedQuery;
-
-        const savedResults = localStorage.getItem("sqlchef-last-results");
-        if (savedResults) {
-            try { this.queryResults = JSON.parse(savedResults); } catch (err) {
-                console.warn("Could not parse saved results:", err);
-            }
-        }
     },
     methods: {
+        /* SESSION MANAGEMENT */
+        makeEmptySession() {
+            return makeSession();
+        },
+        addEmptySession() {
+            const s = makeSession();
+            this.sessions.push(s);
+            this.activeSessionId = s.id;
+            return s;
+        },
+        switchSession(id) {
+            this.activeSessionId = id;
+        },
+        async closeSession(id) {
+            const idx = this.sessions.findIndex(s => s.id === id);
+            if (idx === -1) return;
+
+            const session = this.sessions[idx];
+
+            // Drop the DuckDB table for this session
+            if (session.quotedTableName) {
+                try { await executeQuery(`DROP TABLE IF EXISTS ${session.quotedTableName}`); } catch { /* ignore */ }
+            }
+
+            // Switch active to an adjacent session before removing
+            if (this.activeSessionId === id) {
+                const neighbor = this.sessions[idx - 1] || this.sessions[idx + 1];
+                this.activeSessionId = neighbor ? neighbor.id : null;
+            }
+
+            this.sessions.splice(idx, 1);
+
+            // Always keep at least one tab — create a fresh empty one if needed
+            if (this.sessions.length === 0) {
+                this.addEmptySession();
+            }
+        },
+
+        extensionDot(ext) {
+            const map = {
+                csv: 'bg-emerald-400', tsv: 'bg-emerald-400', txt: 'bg-emerald-400',
+                json: 'bg-blue-400', ndjson: 'bg-blue-400',
+                parquet: 'bg-purple-400',
+            };
+            return map[ext] || 'bg-gray-400';
+        },
+
         updateQuery(newQuery) {
-            this.query = newQuery;
+            if (this.activeSession) this.activeSession.query = newQuery;
         },
 
         /* FILE HANDLING */
         handleDrop(files) {
-            const newFile = files.find((f) => this.isStructuredFile(f));
+            const newFile = files.find(f => this.isStructuredFile(f));
             if (!newFile) {
                 alert("Please drop a valid structured file (CSV, TSV, TXT, JSON, NDJSON, or Parquet).");
                 return;
@@ -153,61 +235,74 @@ export default {
         },
 
         async proceedToAnalysis(file) {
-            this.isLoadingFile = true;
-            this.fileColumns = [];
-            this.fileRowCount = null;
-            this.columnTypes = {};
+            // Always fill the current active session (never resets other sessions)
+            if (!this.activeSession) this.addEmptySession();
+            const session = this.activeSession;
 
-            try {
-                await resetDuckDB();
-                await initDuckDB();
-                this.dbInitialized = true;
-            } catch (err) {
-                console.error("Re-init DB error:", err);
+            session.isLoadingFile = true;
+            session.fileColumns = [];
+            session.fileRowCount = null;
+            session.columnTypes = {};
+            session.importError = null;
+
+            // Drop old table for this session before replacing it
+            if (session.quotedTableName) {
+                try { await executeQuery(`DROP TABLE IF EXISTS ${session.quotedTableName}`); } catch { /* ignore */ }
             }
 
-            this.importError = null;
-            this.currentFile = file;
-            this.uploadTimestamp = Date.now();
+            if (!this.dbInitialized) {
+                try {
+                    await initDuckDB();
+                    this.dbInitialized = true;
+                } catch (err) {
+                    console.error("DB init error:", err);
+                }
+            }
+
+            session.file = file;
+            session.uploadTimestamp = Date.now();
 
             const ext = file.name.split(".").pop().toLowerCase();
-            this.fileExtension = ext;
+            session.fileExtension = ext;
 
             const baseName = file.name.replace(/\.[^/.]+$/, "");
-            this.tableName = baseName;
-            this.quotedTableName = `"${baseName.replace(/"/g, '""')}"`;
+            session.tableName = baseName;
+            session.quotedTableName = `"${baseName.replace(/"/g, '""')}"`;
 
-            this.query = `SELECT * FROM ${this.quotedTableName} LIMIT 10;`;
-            // Format the default query using the same options as the Format button
+            session.query = `SELECT * FROM ${session.quotedTableName} LIMIT 10;`;
             try {
-                this.query = formatSQL(this.query, { language: "sql", keywordCase: "upper" });
-            } catch { /* leave unformatted if it fails */ }
+                session.query = formatSQL(session.query, { language: "sql", keywordCase: "upper" });
+            } catch { /* leave unformatted */ }
 
             try {
                 await this.createTableInDuckDB(file, ext);
                 await this.runQuery();
             } catch (err) {
                 console.error("Error loading file:", err);
-                this.importError = err.message || String(err);
+                session.importError = err.message || String(err);
             } finally {
-                this.isLoadingFile = false;
+                session.isLoadingFile = false;
             }
         },
+
         async recreateTable() {
-            if (!this.currentFile) return;
-            this.importError = null;
-            this.isLoadingFile = true;
+            const session = this.activeSession;
+            if (!session?.file) return;
+            session.importError = null;
+            session.isLoadingFile = true;
             try {
-                await this.createTableInDuckDB(this.currentFile, this.fileExtension);
+                await this.createTableInDuckDB(session.file, session.fileExtension);
                 await this.runQuery();
             } catch (err) {
                 console.error("Error re-parsing file:", err);
-                this.importError = err.message || String(err);
+                session.importError = err.message || String(err);
             } finally {
-                this.isLoadingFile = false;
+                session.isLoadingFile = false;
             }
         },
+
         async createTableInDuckDB(file, ext) {
+            const session = this.activeSession;
             const { db } = await initDuckDB();
             const buf = await file.arrayBuffer();
             const uint8 = new Uint8Array(buf);
@@ -216,94 +311,96 @@ export default {
 
             let sql = "";
             if (["csv", "txt", "tsv"].includes(ext)) {
-                const delim = this.csvOptions.delimiter || ",";
-                const header = this.csvOptions.header ? "true" : "false";
-                const ignoreErrors = (this.csvOptions.onError === "ignore" || this.csvOptions.onError === "replace") ? "TRUE" : "FALSE";
-                const quote = this.csvOptions.quote !== undefined ? this.csvOptions.quote : "\"";
-                const escape = this.csvOptions.escape !== undefined ? this.csvOptions.escape : "\"";
-                const skip = this.csvOptions.skip || 0;
-                const commentClause = this.csvOptions.comment ? `comment='${this.csvOptions.comment}'` : "comment=NULL";
-
+                const { delimiter, header, onError, quote, escape, skip, comment } = session.csvOptions;
+                const delim = delimiter || ",";
+                const headerVal = header ? "true" : "false";
+                const ignoreErrors = (onError === "ignore" || onError === "replace") ? "TRUE" : "FALSE";
+                const quoteVal = quote !== undefined ? quote : "\"";
+                const escapeVal = escape !== undefined ? escape : "\"";
+                const skipVal = skip || 0;
+                const commentClause = comment ? `comment='${comment}'` : "comment=NULL";
                 sql = `
-                    CREATE OR REPLACE TABLE ${this.quotedTableName} AS
+                    CREATE OR REPLACE TABLE ${session.quotedTableName} AS
                     SELECT * FROM read_csv(
                         '${virtualPath}',
                         delim='${delim}',
-                        header=${header},
-                        quote='${quote}',
-                        escape='${escape}',
-                        skip=${skip},
+                        header=${headerVal},
+                        quote='${quoteVal}',
+                        escape='${escapeVal}',
+                        skip=${skipVal},
                         ${commentClause},
                         ignore_errors=${ignoreErrors}
                     );
                 `;
             } else if (ext === "json" || ext === "ndjson") {
-                if (ext === "ndjson" || this.jsonOptions.format === "ndjson") {
-                    sql = `CREATE OR REPLACE TABLE ${this.quotedTableName} AS SELECT * FROM read_ndjson('${virtualPath}');`;
+                if (ext === "ndjson" || session.jsonOptions.format === "ndjson") {
+                    sql = `CREATE OR REPLACE TABLE ${session.quotedTableName} AS SELECT * FROM read_ndjson('${virtualPath}');`;
                 } else {
-                    sql = `CREATE OR REPLACE TABLE ${this.quotedTableName} AS SELECT * FROM read_json_auto('${virtualPath}');`;
+                    sql = `CREATE OR REPLACE TABLE ${session.quotedTableName} AS SELECT * FROM read_json_auto('${virtualPath}');`;
                 }
             } else if (ext === "parquet") {
-                sql = `CREATE OR REPLACE TABLE ${this.quotedTableName} AS SELECT * FROM read_parquet('${virtualPath}');`;
+                sql = `CREATE OR REPLACE TABLE ${session.quotedTableName} AS SELECT * FROM read_parquet('${virtualPath}');`;
             } else {
-                sql = `CREATE OR REPLACE TABLE ${this.quotedTableName} AS SELECT * FROM read_csv_auto('${virtualPath}');`;
+                sql = `CREATE OR REPLACE TABLE ${session.quotedTableName} AS SELECT * FROM read_csv_auto('${virtualPath}');`;
             }
 
             if (sql) await executeQuery(sql);
 
-            // Fetch column schema for display in the sidebar
             try {
-                const described = await executeQuery(`DESCRIBE ${this.quotedTableName}`);
-                this.columnTypes = Object.fromEntries(
+                const described = await executeQuery(`DESCRIBE ${session.quotedTableName}`);
+                session.columnTypes = Object.fromEntries(
                     described.map(r => [r.column_name, r.column_type])
                 );
             } catch {
-                this.columnTypes = {};
+                session.columnTypes = {};
             }
         },
 
         async runQuery() {
+            const session = this.activeSession;
+            if (!session) return;
             if (!this.dbInitialized) {
                 alert("Database is still initializing. Please wait.");
                 return;
             }
-            if (this.isLoading) return;
-            if (!this.query.trim()) return;
+            if (session.isLoading) return;
+            if (!session.query.trim()) return;
 
-            this.isLoading = true;
-            this.queryResults = [];
-            this.queryStats = null;
+            session.isLoading = true;
+            session.queryResults = [];
+            session.queryStats = null;
 
             const startTime = performance.now();
             try {
-                const results = await executeQuery(this.query);
+                const results = await executeQuery(session.query);
                 if (results.length) {
                     const headers = Object.keys(results[0]);
-                    const rows = results.map((row) => Object.values(row));
-                    this.queryResults = [headers, ...rows];
-                    this.fileColumns = headers.map((colName) => ({ column_name: colName }));
+                    const rows = results.map(row => Object.values(row));
+                    session.queryResults = [headers, ...rows];
+                    session.fileColumns = headers.map(colName => ({ column_name: colName }));
                 } else {
-                    this.queryResults = [];
-                    this.fileColumns = [];
+                    session.queryResults = [];
+                    session.fileColumns = [];
                 }
                 const durationMs = performance.now() - startTime;
-                this.fileRowCount = results.length;
-                this.queryStats = { durationMs, rowsReturned: results.length };
+                session.fileRowCount = results.length;
+                session.queryStats = { durationMs, rowsReturned: results.length };
 
-                this.$emit("query-ran", { query: this.query, results: this.queryResults });
+                this.$emit("query-ran", { query: session.query, results: session.queryResults });
             } catch (err) {
                 console.error("Query error:", err);
                 alert(`Query error: ${err.message || err}`);
             } finally {
-                this.isLoading = false;
+                session.isLoading = false;
             }
         },
 
         downloadResults() {
-            if (!this.queryResults.length) return;
+            const session = this.activeSession;
+            if (!session?.queryResults.length) return;
 
-            const headers = this.queryResults[0];
-            const rows = this.queryResults.slice(1);
+            const headers = session.queryResults[0];
+            const rows = session.queryResults.slice(1);
 
             const escape = (val) => {
                 const formatted = formatCell(val);
@@ -313,7 +410,7 @@ export default {
 
             const csvContent = [
                 headers.map(escape).join(","),
-                ...rows.map((row) => row.map(escape).join(",")),
+                ...rows.map(row => row.map(escape).join(",")),
             ].join("\n");
 
             const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
@@ -328,37 +425,37 @@ export default {
         },
 
         async handleColumnCast({ columnName, newType }) {
+            const session = this.activeSession;
             try {
                 await executeQuery(`
-                    ALTER TABLE ${this.quotedTableName}
+                    ALTER TABLE ${session.quotedTableName}
                     ALTER COLUMN "${columnName.replace(/"/g, '""')}"
                     TYPE ${newType};
                 `);
-                // Refresh schema after cast
-                const described = await executeQuery(`DESCRIBE ${this.quotedTableName}`);
-                this.columnTypes = Object.fromEntries(
+                const described = await executeQuery(`DESCRIBE ${session.quotedTableName}`);
+                session.columnTypes = Object.fromEntries(
                     described.map(r => [r.column_name, r.column_type])
                 );
                 await this.runQuery();
             } catch (err) {
                 console.error("Error casting column:", err);
-                this.importError = `Cannot cast "${columnName}" to ${newType}: ${err.message}`;
+                session.importError = `Cannot cast "${columnName}" to ${newType}: ${err.message}`;
             }
         },
 
         async handleColumnRename({ oldName, newName }) {
+            const session = this.activeSession;
             if (!newName || !oldName) return;
             if (newName.trim() === "" || newName === oldName) return;
             try {
                 await executeQuery(`
-                    ALTER TABLE ${this.quotedTableName}
+                    ALTER TABLE ${session.quotedTableName}
                     RENAME COLUMN "${oldName.replace(/"/g, '""')}"
                     TO "${newName.replace(/"/g, '""')}";
                 `);
-                // Keep columnTypes in sync with the rename
-                if (this.columnTypes[oldName] !== undefined) {
-                    this.columnTypes[newName] = this.columnTypes[oldName];
-                    delete this.columnTypes[oldName];
+                if (session.columnTypes[oldName] !== undefined) {
+                    session.columnTypes[newName] = session.columnTypes[oldName];
+                    delete session.columnTypes[oldName];
                 }
                 await this.runQuery();
             } catch (err) {
