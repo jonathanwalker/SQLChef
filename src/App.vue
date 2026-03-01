@@ -11,6 +11,22 @@
 
       <!-- Right-side Icons/Buttons -->
       <div class="flex items-center space-x-4">
+        <!-- DuckDB integrity indicator -->
+        <div :title="securityTitle" class="flex items-center cursor-default">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 transition-colors"
+            :class="dbState === 'verified' ? 'text-green-400' : dbState === 'failed' ? 'text-amber-400' : 'text-gray-500 animate-pulse'"
+            viewBox="0 0 24 24" fill="currentColor">
+            <!-- verified: shield with checkmark -->
+            <path v-if="dbState === 'verified'"
+              d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z" />
+            <!-- failed: shield with exclamation -->
+            <path v-else-if="dbState === 'failed'"
+              d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm1 13h-2v-2h2v2zm0-4h-2V7h2v4z" />
+            <!-- loading: plain shield -->
+            <path v-else d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z" />
+          </svg>
+        </div>
+
         <!-- History Button: standard "History" icon (clock arrow) -->
         <button @click="toggleHistory"
           class="text-blue-400 hover:text-blue-300 flex items-center p-2 border-0 bg-transparent outline-none focus:outline-none active:outline-none"
@@ -96,7 +112,8 @@ export default {
       showHistory: false,
       queryHistory: [], // Array of { query, results, timestamp }
       selectedHistoryItem: null, // If user chooses a prior query from History
-      dbInitialized: false, // New global state
+      dbInitialized: false,
+      dbState: 'loading', // 'loading' | 'verified' | 'failed'
       basePath: import.meta.env.BASE_URL,
     };
   },
@@ -112,11 +129,12 @@ export default {
     }
 
     try {
-      await initDuckDB();
+      const { verified } = await initDuckDB();
       this.dbInitialized = true;
-      console.log("DuckDB initialized in App.vue.");
+      this.dbState = verified ? 'verified' : 'failed';
     } catch (err) {
       console.error("Failed to initialize DuckDB in App.vue:", err);
+      this.dbState = 'failed';
       alert("Failed to initialize the database. Please refresh the page or try again later.");
     }
   },
@@ -127,6 +145,13 @@ export default {
       handler(newVal) {
         localStorage.setItem("sqlchef-history", safeStringify(newVal));
       },
+    },
+  },
+  computed: {
+    securityTitle() {
+      if (this.dbState === 'verified') return 'DuckDB running locally — integrity verified';
+      if (this.dbState === 'failed') return 'DuckDB loaded locally, but integrity check could not be verified';
+      return 'Verifying DuckDB integrity…';
     },
   },
   methods: {

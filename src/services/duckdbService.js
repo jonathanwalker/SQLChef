@@ -15,7 +15,44 @@ const MANUAL_BUNDLES = {
 
 let db = null;
 let connection = null;
-let initializing = null; // Flag to track initialization
+let initializing = null;
+let verified = false;
+let verificationDone = false;
+
+async function verifySRI(buffer, sriHash) {
+  const expected = Uint8Array.from(atob(sriHash.slice(7)), (c) =>
+    c.charCodeAt(0)
+  );
+  const actual = new Uint8Array(await crypto.subtle.digest("SHA-256", buffer));
+  return (
+    actual.length === expected.length && actual.every((b, i) => b === expected[i])
+  );
+}
+
+async function checkIntegrity() {
+  if (verificationDone) return verified;
+  verificationDone = true;
+  try {
+    const res = await fetch(`${BASE}duckdb/integrity.json`);
+    if (!res.ok) return false;
+    const manifest = await res.json();
+    for (const file of [
+      "duckdb-browser-mvp.worker.js",
+      "duckdb-browser-eh.worker.js",
+    ]) {
+      const expected = manifest[file];
+      if (!expected) return false;
+      const fileRes = await fetch(`${BASE}duckdb/${file}`);
+      if (!fileRes.ok) return false;
+      if (!(await verifySRI(await fileRes.arrayBuffer(), expected)))
+        return false;
+    }
+    return true;
+  } catch (err) {
+    console.warn("DuckDB integrity check error:", err);
+    return false;
+  }
+}
 
 function arrowTableToObjects(arrowTable) {
   const arrowRows = arrowTable.toArray();
@@ -23,38 +60,32 @@ function arrowTableToObjects(arrowTable) {
 }
 
 /**
- * Initialize DuckDB (if not already).
+ * Initialize DuckDB (if not already). Returns { db, connection, verified }
+ * where verified indicates whether the worker files passed the SRI integrity check.
  */
 export async function initDuckDB() {
-  // Already connected? Return it
   if (db && connection) {
-    return { db, connection };
+    return { db, connection, verified };
   }
-  // If already initializing, await the same promise
   if (initializing) {
     return initializing;
   }
 
-  // Otherwise, begin the async init
   initializing = (async () => {
-    const bundle = await duckdb.selectBundle(MANUAL_BUNDLES);
+    verified = await checkIntegrity();
 
+    const bundle = await duckdb.selectBundle(MANUAL_BUNDLES);
     const worker = new Worker(bundle.mainWorker);
     const logger = new duckdb.ConsoleLogger();
     db = new duckdb.AsyncDuckDB(logger, worker);
-
     await db.instantiate(bundle.mainModule, bundle.pthreadWorker);
-
-    // Create a single connection
     connection = await db.connect();
 
-    return { db, connection };
+    return { db, connection, verified };
   })();
 
-  // After initialization completes, clear the "initializing" flag
   try {
-    const result = await initializing;
-    return result;
+    return await initializing;
   } finally {
     initializing = null;
   }
@@ -64,7 +95,6 @@ export async function initDuckDB() {
  * Execute a SQL query and return rows as an array of objects.
  */
 export async function executeQuery(sql) {
-  // Ensure DB is ready
   if (!connection) {
     await initDuckDB();
   }
@@ -93,7 +123,6 @@ export async function closeDuckDB() {
  * re-initializing when loading a new large file.
  */
 export async function resetDuckDB() {
-  // Safely close
   if (connection) {
     try {
       await connection.close();
@@ -102,9 +131,9 @@ export async function resetDuckDB() {
     }
     connection = null;
   }
-  // Terminate WASM
   if (db) {
     await db.terminate();
     db = null;
   }
+  // verificationDone / verified intentionally preserved — files haven't changed
 }
