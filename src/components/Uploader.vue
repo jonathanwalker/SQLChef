@@ -1,5 +1,17 @@
 <template>
-    <div class="flex-1 flex flex-col items-center justify-center p-8 bg-gray-50 dark:bg-zinc-900">
+    <div class="flex-1 flex flex-col items-center overflow-auto bg-gray-50 dark:bg-zinc-900 px-8 py-8">
+
+        <!-- Top spacer (1 part) -->
+        <div class="flex-1"></div>
+
+        <!-- Intro -->
+        <div class="max-w-lg w-full mb-10 text-center">
+            <img :src="logoSrc" alt="SQL Chef" class="h-14 w-auto mx-auto mb-4" />
+            <p class="text-sm text-gray-500 dark:text-zinc-400 leading-relaxed max-w-xs mx-auto">
+                Write SQL against your own files, straight in the browser.
+                No uploads, no account. Nothing leaves your device.
+            </p>
+        </div>
 
         <!-- Drop Zone -->
         <div
@@ -13,24 +25,19 @@
             @drop.prevent="onDrop"
             @click="triggerFileSelect"
         >
-            <!-- Cloud upload icon -->
             <div class="mb-4 p-3 rounded-xl bg-gray-100 dark:bg-zinc-800">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-gray-500 dark:text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V9.75m0 0 3 3m-3-3-3 3M6.75 19.5a4.5 4.5 0 0 1-1.41-8.775 5.25 5.25 0 0 1 10.233-2.33 3 3 0 0 1 3.758 3.848A3.752 3.752 0 0 1 18 19.5H6.75Z" />
                 </svg>
             </div>
-
             <h2 class="text-base font-semibold text-gray-800 dark:text-zinc-200 mb-1">Drop a file to get started</h2>
             <p class="text-sm text-gray-400 dark:text-zinc-500 mb-4">or <span class="text-blue-500 dark:text-blue-400 hover:text-blue-400 dark:hover:text-blue-300 transition-colors duration-150">browse files</span></p>
-
-            <!-- Supported format badges -->
             <div class="flex flex-wrap gap-1.5 justify-center">
                 <span v-for="fmt in ['CSV', 'TSV', 'JSON', 'NDJSON', 'Parquet', 'TXT']" :key="fmt"
                     class="px-2 py-0.5 rounded text-xs font-medium bg-gray-100 dark:bg-zinc-800 text-gray-500 dark:text-zinc-400 border border-gray-300 dark:border-zinc-700">
                     {{ fmt }}
                 </span>
             </div>
-
             <input type="file" ref="fileInput" class="hidden" @change="onFileSelect" />
         </div>
 
@@ -73,6 +80,10 @@
                 {{ sample.name }}
             </button>
         </div>
+
+        <!-- Bottom spacer (2 parts — pushes content toward upper third) -->
+        <div class="flex-[2]"></div>
+
     </div>
 </template>
 
@@ -88,6 +99,9 @@ function filenameFromUrl(url) {
 
 export default {
     name: "Uploader",
+    props: {
+        theme: { type: String, default: 'light' },
+    },
     data() {
         return {
             urlInput: "",
@@ -102,6 +116,10 @@ export default {
     },
     computed: {
         isDragging() { return this.dragDepth > 0; },
+        logoSrc() {
+            const base = import.meta.env.BASE_URL;
+            return this.theme === 'dark' ? `${base}sqlchef-dark.svg` : `${base}sqlchef-light.svg`;
+        },
     },
     methods: {
         onDrop(event) {

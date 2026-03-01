@@ -256,7 +256,7 @@
       </div>
     </header>
 
-    <Interface ref="interface" :history-item="selectedHistoryItem" @query-ran="onQueryRan" />
+    <Interface ref="interface" :history-item="selectedHistoryItem" :theme="theme" @query-ran="onQueryRan" />
 
     <!-- Integrity failure overlay — blocks all interaction with the app -->
     <div

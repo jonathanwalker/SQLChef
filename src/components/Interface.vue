@@ -74,6 +74,7 @@
         <!-- Uploader: active session has no file and no results -->
         <Uploader
             v-if="!activeSession || (!activeSession.file && !activeSession.queryResults.length)"
+            :theme="theme"
             @drop="handleDrop"
             @file-selected="handleFileSelect"
         />
@@ -157,6 +158,7 @@ export default {
     components: { Uploader, Sidebar, Query, Results },
     props: {
         historyItem: { type: Object, default: null },
+        theme: { type: String, default: 'light' },
     },
     data() {
         return {
