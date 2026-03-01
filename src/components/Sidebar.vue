@@ -1,229 +1,211 @@
 <template>
-    <aside class="hidden md:flex md:flex-col border-r border-gray-700 bg-gray-800 p-4 h-full"
-        style="overflow: auto; min-width: 250px; max-width: 320px">
-        <!-- Scrollable Content -->
-        <div class="flex-1 overflow-y-auto space-y-6">
-            <!-- Columns Section -->
-            <div>
-                <h2 class="text-lg font-semibold mb-3">Columns</h2>
+    <aside class="hidden md:flex md:flex-col w-60 shrink-0 border-r border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 h-full overflow-hidden">
 
-                <!-- Spinner if file is currently loading -->
-                <div v-if="isLoadingFile" class="mb-4 flex items-center space-x-2">
-                    <svg class="animate-spin h-5 w-5 text-green-400" xmlns="http://www.w3.org/2000/svg" fill="none"
-                        viewBox="0 0 24 24" stroke="currentColor">
+        <!-- File Header -->
+        <div class="px-3 pt-3 pb-2 border-b border-gray-200 dark:border-gray-800 shrink-0">
+            <div class="flex items-center gap-2 min-w-0">
+                <span class="flex-1 truncate text-sm font-medium text-gray-800 dark:text-gray-200" :title="currentFile.name">
+                    {{ currentFile.name }}
+                </span>
+                <span class="shrink-0 px-1.5 py-0.5 rounded text-xs font-semibold uppercase tracking-wide"
+                    :class="{
+                        'bg-emerald-900/60 text-emerald-400': ['csv','tsv','txt'].includes(fileExtension),
+                        'bg-blue-900/60 text-blue-400': fileExtension === 'json' || fileExtension === 'ndjson',
+                        'bg-purple-900/60 text-purple-400': fileExtension === 'parquet',
+                        'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400': !['csv','tsv','txt','json','ndjson','parquet'].includes(fileExtension),
+                    }">
+                    {{ fileExtension }}
+                </span>
+            </div>
+            <div class="mt-1 flex items-center gap-2 text-xs text-gray-400 dark:text-gray-500">
+                <span v-if="fileRowCount">{{ fileRowCount.toLocaleString() }} rows</span>
+                <span v-if="fileRowCount && currentFile.size" class="text-gray-300 dark:text-gray-700">·</span>
+                <span>{{ formatFileSize(currentFile.size) }}</span>
+            </div>
+        </div>
+
+        <!-- Scrollable Content -->
+        <div class="flex-1 overflow-y-auto">
+
+            <!-- Columns Section -->
+            <div class="px-3 py-3">
+                <h3 class="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">Columns</h3>
+
+                <!-- Spinner while loading -->
+                <div v-if="isLoadingFile" class="flex items-center gap-2 py-2">
+                    <svg class="animate-spin h-4 w-4 text-emerald-400 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
                         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
                     </svg>
-                    <span class="text-green-400 font-bold">
-                        Loading columns...
-                    </span>
+                    <span class="text-xs text-emerald-400">Loading columns...</span>
                 </div>
 
-                <!-- Table of columns if not loading -->
-                <div v-else class="overflow-y-auto max-h-128">
-                    <table class="w-full text-sm rounded-md shadow-inner table-fixed">
-                        <tbody>
-                            <tr v-for="(col, index) in localColumns" :key="index"
-                                class="hover:bg-gray-800 transition-colors duration-200">
-                                <td
-                                    class="p-2 border-b border-gray-600 flex items-center justify-between text-gray-200">
-                                    <!-- If editing? Show input. Otherwise show text -->
-                                    <div v-if="col.isEditing" class="flex-1">
-                                        <input v-model="col.editValue" type="text"
-                                            class="bg-gray-900 border border-gray-700 rounded p-1 w-full"
-                                            @keyup.enter="finishEdit(index)" @blur="finishEdit(index)" />
-                                    </div>
-                                    <div v-else class="flex-1 truncate">
-                                        {{ col.column_name }}
-                                    </div>
-
-                                    <!-- Pencil icon if not editing, else no icon -->
-                                    <span v-if="!col.isEditing"
-                                        class="text-gray-400 hover:text-gray-200 p-1 ml-1 transition"
-                                        @click="startEdit(index)" title="Rename Column">
-                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
-                                            stroke-width="1.5" stroke="currentColor" class="size-4">
-                                            <path stroke-linecap="round" stroke-linejoin="round"
-                                                d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
-                                        </svg>
-                                    </span>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <!-- File Details Section (optional, commented out) -->
-            <!--
-            <div>
-                <h2 class="text-lg font-semibold mb-3">File Details</h2>
-                <ul class="space-y-1 text-sm text-gray-200">
-                    <li>
-                        <span class="font-semibold text-gray-300">Name:</span>
-                        {{ currentFile.name }}
-                    </li>
-                    <li>
-                        <span class="font-semibold text-gray-300">Size:</span>
-                        {{ formatFileSize(currentFile.size) }}
-                    </li>
-                    <li>
-                        <span class="font-semibold text-gray-300">Rows:</span>
-                        {{ fileRowCount }}
-                    </li>
-                    <li>
-                        <span class="font-semibold text-gray-300">Extension:</span>
-                        {{ fileExtension }}
+                <!-- Column list -->
+                <ul v-else class="space-y-0.5">
+                    <li
+                        v-for="(col, index) in localColumns"
+                        :key="index"
+                        class="group flex items-center py-1.5 px-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-150"
+                    >
+                        <!-- Editing state -->
+                        <div v-if="col.isEditing" class="flex-1">
+                            <input
+                                v-model="col.editValue"
+                                type="text"
+                                class="w-full bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded px-1.5 py-0.5 text-xs text-gray-800 dark:text-gray-200 focus:outline-none focus:border-gray-500"
+                                @keyup.enter="finishEdit(index)"
+                                @blur="finishEdit(index)"
+                            />
+                        </div>
+                        <!-- Display state -->
+                        <div v-else class="flex-1 truncate text-xs text-gray-700 dark:text-gray-300" :title="col.column_name">
+                            {{ col.column_name }}
+                        </div>
+                        <!-- Pencil icon -->
+                        <span
+                            v-if="!col.isEditing"
+                            class="opacity-0 group-hover:opacity-100 text-gray-400 dark:text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 ml-1 shrink-0 transition-opacity duration-150 cursor-pointer p-0.5"
+                            @click="startEdit(index)"
+                            title="Rename column"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-3.5 w-3.5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
+                            </svg>
+                        </span>
                     </li>
                 </ul>
             </div>
-            -->
-        </div>
 
-        <!-- Footer: parse/re-upload section -->
-        <div class="mt-6">
-            <!-- Parse Options Section -->
-            <div>
-                <div v-if="importError" class="mb-4 p-2 bg-red-800 text-red-100 rounded-md">
-                    <strong>Import Error:</strong> {{ importError }}
-                    <p class="text-sm mt-1">
-                        Please adjust parse options below and click "Re-Parse".
-                    </p>
+            <!-- Divider -->
+            <div class="mx-3 h-px bg-gray-200 dark:bg-gray-800"></div>
+
+            <!-- Parse Options -->
+            <div class="px-3 py-3">
+
+                <!-- Import error banner -->
+                <div v-if="importError" class="mb-3 p-2 bg-red-950/60 border border-red-800/60 text-red-300 rounded-md text-xs">
+                    <strong class="block mb-0.5">Import Error</strong>
+                    {{ importError }}
+                    <p class="text-red-400 mt-1">Adjust parse options and click Re-Parse.</p>
                 </div>
 
                 <!-- CSV Options -->
-                <div v-if="['csv', 'txt', 'tsv'].includes(fileExtension)" class="mb-4">
-                    <h2 class="text-lg font-semibold">CSV Options</h2>
+                <div v-if="['csv', 'txt', 'tsv'].includes(fileExtension)">
+                    <h3 class="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">CSV Options</h3>
 
-                    <!-- Basic Options -->
-                    <label class="block mb-1 text-sm mt-2">
-                        Delimiter:
+                    <label class="block mb-2">
+                        <span class="text-xs text-gray-500 dark:text-gray-400">Delimiter</span>
                         <input type="text" v-model="csvOptions.delimiter"
-                            class="w-full mt-1 p-2 bg-gray-700 border border-gray-600 rounded-md"
+                            class="w-full mt-1 px-2 py-1.5 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-md text-sm text-gray-800 dark:text-gray-200 focus:outline-none focus:border-gray-500 dark:focus:border-gray-600 transition-colors duration-150"
                             placeholder="e.g. , or \t" />
                     </label>
 
-                    <label class="flex items-center mt-2 text-sm">
-                        <input type="checkbox" v-model="csvOptions.header" class="mr-2" />
+                    <label class="flex items-center gap-2 mb-2 text-xs text-gray-500 dark:text-gray-400 cursor-pointer">
+                        <input type="checkbox" v-model="csvOptions.header" class="rounded" />
                         Has Header
                     </label>
 
-                    <!-- Toggle for advanced -->
+                    <!-- Advanced toggle -->
                     <span
-                        class="mt-3 text-gray-200 text-sm flex items-center cursor-pointer hover:text-gray-400 transition-colors"
-                        @click="showAdvancedCsv = !showAdvancedCsv" role="button" tabindex="0"
-                        @keydown.enter="showAdvancedCsv = !showAdvancedCsv">
-                        <!-- Arrow Icon -->
-                        <span class="inline-block transform transition-transform duration-200"
-                            :class="showAdvancedCsv ? 'rotate-90' : 'rotate-0'">
-                            &#9654; <!-- ▶ -->
-                        </span>
-                        <span class="ml-2">Advanced</span>
+                        class="flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer transition-colors duration-150 mb-1"
+                        @click="showAdvancedCsv = !showAdvancedCsv"
+                        role="button"
+                        tabindex="0"
+                        @keydown.enter="showAdvancedCsv = !showAdvancedCsv"
+                    >
+                        <span class="inline-block transition-transform duration-200" :class="showAdvancedCsv ? 'rotate-90' : 'rotate-0'">&#9654;</span>
+                        Advanced
                     </span>
 
-                    <!-- Advanced Options (hidden by default) -->
                     <transition name="fade">
-                        <div v-if="showAdvancedCsv" class="mt-3 space-y-3 text-sm">
-                            <!-- onError -->
+                        <div v-if="showAdvancedCsv" class="space-y-2 mt-2">
                             <label class="block">
-                                On Parse Error:
+                                <span class="text-xs text-gray-500 dark:text-gray-400">On Parse Error</span>
                                 <select v-model="csvOptions.onError"
-                                    class="w-full mt-1 p-2 bg-gray-700 border border-gray-600 rounded-md">
+                                    class="w-full mt-1 px-2 py-1.5 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-md text-sm text-gray-800 dark:text-gray-200 focus:outline-none transition-colors duration-150">
                                     <option value="fail">Fail</option>
                                     <option value="ignore">Ignore</option>
                                     <option value="replace">Replace</option>
                                 </select>
-                                <p class="text-xs text-gray-400 mt-1">
-                                    "Ignore" or "Replace" will skip invalid
-                                    rows (
-                                    <code>ignore_errors=TRUE</code>)
-                                </p>
+                                <p class="text-xs text-gray-400 dark:text-gray-600 mt-1">"Ignore" or "Replace" skips invalid rows</p>
                             </label>
-
-                            <!-- quote -->
                             <label class="block">
-                                Quote Character:
+                                <span class="text-xs text-gray-500 dark:text-gray-400">Quote Character</span>
                                 <input type="text" v-model="csvOptions.quote"
-                                    class="w-full mt-1 p-2 bg-gray-700 border border-gray-600 rounded-md"
-                                    placeholder='e.g. " or ' />
+                                    class="w-full mt-1 px-2 py-1.5 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-md text-sm text-gray-800 dark:text-gray-200 focus:outline-none transition-colors duration-150"
+                                    placeholder='"' />
                             </label>
-
-                            <!-- escape -->
                             <label class="block">
-                                Escape Character:
+                                <span class="text-xs text-gray-500 dark:text-gray-400">Escape Character</span>
                                 <input type="text" v-model="csvOptions.escape"
-                                    class="w-full mt-1 p-2 bg-gray-700 border border-gray-600 rounded-md"
-                                    placeholder='e.g. " or \' />
+                                    class="w-full mt-1 px-2 py-1.5 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-md text-sm text-gray-800 dark:text-gray-200 focus:outline-none transition-colors duration-150"
+                                    placeholder='"' />
                             </label>
-
-                            <!-- skip -->
                             <label class="block">
-                                Skip Lines:
+                                <span class="text-xs text-gray-500 dark:text-gray-400">Skip Lines</span>
                                 <input type="number" v-model.number="csvOptions.skip"
-                                    class="w-full mt-1 p-2 bg-gray-700 border border-gray-600 rounded-md" min="0" />
+                                    class="w-full mt-1 px-2 py-1.5 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-md text-sm text-gray-800 dark:text-gray-200 focus:outline-none transition-colors duration-150"
+                                    min="0" />
                             </label>
-
-                            <!-- comment -->
                             <label class="block">
-                                Comment Char:
+                                <span class="text-xs text-gray-500 dark:text-gray-400">Comment Char</span>
                                 <input type="text" v-model="csvOptions.comment"
-                                    class="w-full mt-1 p-2 bg-gray-700 border border-gray-600 rounded-md"
+                                    class="w-full mt-1 px-2 py-1.5 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-md text-sm text-gray-800 dark:text-gray-200 focus:outline-none transition-colors duration-150"
                                     placeholder="#" />
                             </label>
                         </div>
                     </transition>
 
-                    <!-- Re-Parse Button -->
-                    <button class="mt-3 px-3 py-2 bg-blue-600 hover:bg-blue-500 rounded-md w-full"
-                        @click="$emit(' recreate-table')">
+                    <button
+                        class="mt-3 w-full px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium rounded-md transition-colors duration-150"
+                        @click="$emit('recreate-table')">
                         Re-Parse
                     </button>
                 </div>
 
                 <!-- JSON / NDJSON Options -->
-                <div v-else-if="fileExtension === 'json' || fileExtension === 'ndjson'" class="mb-4">
-                    <h4 class="font-semibold mb-2">JSON / NDJSON</h4>
-                    <label class="block mb-1 text-sm">
-                        Format:
+                <div v-else-if="fileExtension === 'json' || fileExtension === 'ndjson'">
+                    <h3 class="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">JSON Options</h3>
+                    <label class="block mb-2">
+                        <span class="text-xs text-gray-500 dark:text-gray-400">Format</span>
                         <select v-model="jsonOptions.format"
-                            class="w-full mt-1 p-2 bg-gray-700 border border-gray-600 rounded-md">
+                            class="w-full mt-1 px-2 py-1.5 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-md text-sm text-gray-800 dark:text-gray-200 focus:outline-none transition-colors duration-150">
                             <option value="auto">Auto (read_json_auto)</option>
-                            <option value="ndjson">
-                                NDJSON (read_ndjson)
-                            </option>
+                            <option value="ndjson">NDJSON (read_ndjson)</option>
                         </select>
                     </label>
-                    <button class="mt-3 px-3 py-2 bg-blue-600 hover:bg-blue-500 rounded-md w-full"
+                    <button
+                        class="mt-2 w-full px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium rounded-md transition-colors duration-150"
                         @click="$emit('recreate-table')">
                         Re-Parse
                     </button>
                 </div>
+
+            </div>
+        </div>
+
+        <!-- Footer: compact re-upload zone -->
+        <div class="shrink-0 border-t border-gray-200 dark:border-gray-800 px-3 py-3 space-y-2">
+            <div
+                class="h-16 border border-dashed border-gray-300 dark:border-gray-700 hover:border-gray-500 rounded-lg flex items-center justify-center gap-2 cursor-pointer bg-gray-100/40 dark:bg-gray-800/40 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-150"
+                @dragover.prevent="onDragOver"
+                @drop.prevent="onDrop"
+                @click="triggerFileSelect"
+            >
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-400 dark:text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
+                </svg>
+                <span class="text-xs text-gray-400 dark:text-gray-500">Drop or click to replace file</span>
+                <input type="file" ref="fileInputReplace" class="hidden" @change="handleFileReplace" />
             </div>
 
-            <!-- Re-upload File Section -->
-            <div class="mt-4">
-                <div class="w-full h-40 border-2 border-dashed border-gray-500 rounded-md flex items-center justify-center bg-gray-700 hover:bg-gray-600 cursor-pointer transition"
-                    @dragover.prevent="onDragOver" @drop.prevent="onDrop" @click="triggerFileSelect">
-                    <div class="text-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 mx-auto text-gray-300" fill="none"
-                            viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M12 12v6m0 0l-3-3m3 3l3-3" />
-                        </svg>
-                        <p class="text-gray-300 mt-2 font-semibold">
-                            Drag & Drop to Re-upload
-                        </p>
-                        <p class="text-gray-400 text-sm">or paste url</p>
-
-                        <div class="mt-2 flex">
-                            <input ref="urlInput" type="text"
-                                class="flex-1 p-2 bg-gray-700 border border-gray-600 rounded-md text-sm"
-                                placeholder="https://example.com/data.csv" @click.stop @paste.prevent="onPaste" />
-                        </div>
-                    </div>
-                    <input type="file" ref="fileInputReplace" class="hidden" @change="handleFileReplace" />
-                </div>
-            </div>
+            <input
+                ref="urlInput"
+                type="text"
+                class="w-full px-2 py-1.5 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-md text-xs text-gray-500 dark:text-gray-400 placeholder-gray-400 dark:placeholder-gray-600 focus:outline-none focus:border-gray-500 dark:focus:border-gray-600 transition-colors duration-150"
+                placeholder="https://example.com/data.csv"
+                @paste.prevent="onPaste"
+            />
         </div>
     </aside>
 </template>
@@ -240,20 +222,16 @@ export default {
         csvOptions: { type: Object, required: true },
         jsonOptions: { type: Object, required: true },
         importError: { type: String, default: null },
-        isLoadingFile: { type: Boolean, default: false }, // Show/hide the "Loading columns..." spinner
+        isLoadingFile: { type: Boolean, default: false },
     },
     data() {
         return {
             fileUrl: "",
-            showAdvancedCsv: false, // Toggle advanced CSV options
-
-            // We'll copy the parent's fileColumns into a local array
-            // so we can store "isEditing" + "editValue" per column
+            showAdvancedCsv: false,
             localColumns: [],
         };
     },
     watch: {
-        // When fileColumns change, rebuild localColumns
         fileColumns: {
             immediate: true,
             handler(newCols) {
@@ -281,9 +259,7 @@ export default {
             const files = Array.from(event.dataTransfer.files);
             const newFile = files.find((f) => this.isStructuredFile(f));
             if (!newFile) {
-                alert(
-                    "Please drop a valid structured file (CSV, TSV, TXT, JSON, NDJSON, or Parquet)."
-                );
+                alert("Please drop a valid structured file (CSV, TSV, TXT, JSON, NDJSON, or Parquet).");
                 return;
             }
             this.$emit("file-selected", newFile);
@@ -296,9 +272,7 @@ export default {
             if (file && this.isStructuredFile(file)) {
                 this.$emit("file-selected", file);
             } else {
-                alert(
-                    "Invalid file type. Must be CSV, TSV, TXT, JSON, NDJSON, or Parquet."
-                );
+                alert("Invalid file type. Must be CSV, TSV, TXT, JSON, NDJSON, or Parquet.");
             }
         },
         isStructuredFile(file) {
@@ -314,24 +288,16 @@ export default {
             try {
                 const response = await fetch(this.fileUrl);
                 if (!response.ok) {
-                    throw new Error(
-                        `Failed to fetch: ${response.status} ${response.statusText}`
-                    );
+                    throw new Error(`Failed to fetch: ${response.status} ${response.statusText}`);
                 }
                 const blob = await response.blob();
-
-                // Derive extension from the URL, fallback to .txt
                 let ext = "txt";
                 if (this.fileUrl.includes(".")) {
                     ext = this.fileUrl.split(".").pop().split("?")[0] || "txt";
                 }
                 const fileName = `remote_file.${ext}`;
-
-                // Create a File object
                 const file = new File([blob], fileName, { type: blob.type });
                 this.$emit("file-selected", file);
-
-                // Clear the URL input
                 this.fileUrl = "";
                 if (this.$refs.urlInput) {
                     this.$refs.urlInput.value = "";
@@ -340,14 +306,10 @@ export default {
                 alert("Error loading file from URL:\n" + error.message);
             }
         },
-
-        // Start editing a column
         startEdit(index) {
             this.localColumns.forEach((c) => (c.isEditing = false));
             this.localColumns[index].isEditing = true;
         },
-
-        // Called when user presses Enter or leaves the field
         finishEdit(index) {
             const col = this.localColumns[index];
             if (!col.isEditing) return;
@@ -364,20 +326,3 @@ export default {
     },
 };
 </script>
-
-<style scoped>
-.table-fixed {
-    table-layout: fixed;
-}
-
-td,
-th {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-input {
-    outline: none;
-}
-</style>

@@ -1,92 +1,156 @@
 <template>
   <div id="app">
-    <header class="app-header flex items-center justify-between px-4 py-1.5 bg-gray-800">
+    <header class="flex items-center justify-between px-5 h-11 bg-white dark:bg-gray-950 border-b border-gray-200 dark:border-gray-800 shrink-0">
       <div class="flex items-center">
-        <!-- Link to basePath in data -->
-        <a :href="basePath" class="flex items-center text-gray-200">
-          <!-- Increased height and width, removed right margin -->
-          <img src="/sqlchef-dark.svg" alt="SQL Chef Logo" class="h-10 w-40 -ml-2" />
+        <a :href="basePath" class="flex items-center">
+          <img :src="theme === 'dark' ? basePath + 'sqlchef-dark.svg' : basePath + 'sqlchef-light.svg'" alt="SQL Chef Logo" class="h-8 w-auto -ml-1" />
         </a>
       </div>
 
-      <!-- Right-side Icons/Buttons -->
-      <div class="flex items-center space-x-4">
-        <!-- DuckDB integrity indicator -->
-        <div :title="securityTitle" class="flex items-center cursor-default">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 transition-colors"
-            :class="dbState === 'verified' ? 'text-green-400' : dbState === 'failed' ? 'text-amber-400' : 'text-gray-500 animate-pulse'"
-            viewBox="0 0 24 24" fill="currentColor">
-            <!-- verified: shield with checkmark -->
-            <path v-if="dbState === 'verified'"
-              d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z" />
-            <!-- failed: shield with exclamation -->
-            <path v-else-if="dbState === 'failed'"
-              d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm1 13h-2v-2h2v2zm0-4h-2V7h2v4z" />
-            <!-- loading: plain shield -->
-            <path v-else d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z" />
-          </svg>
+      <div class="flex items-center gap-1">
+        <!-- DuckDB integrity badge + popover -->
+        <div ref="securityBadge" class="relative" @click.stop>
+          <button
+            @click="dbState !== 'loading' && (showSecurityPopover = !showSecurityPopover)"
+            :title="dbState === 'failed' ? 'Integrity check FAILED — do not use this session.' : undefined"
+            class="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-colors duration-150"
+            :class="{
+              'text-emerald-600 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-950/50 hover:bg-emerald-100 dark:hover:bg-emerald-950 cursor-pointer': dbState === 'verified',
+              'text-red-600 bg-red-50 dark:text-red-400 dark:bg-red-950/50 cursor-pointer': dbState === 'failed',
+              'text-gray-400 dark:text-gray-600 animate-pulse cursor-default': dbState === 'loading',
+            }"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+              <path v-if="dbState === 'verified'"
+                d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z" />
+              <path v-else-if="dbState === 'failed'"
+                d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm1 13h-2v-2h2v2zm0-4h-2V7h2v4z" />
+              <path v-else d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z" />
+            </svg>
+            <span v-if="dbState === 'verified'">Verified local</span>
+            <span v-else-if="dbState === 'failed'">Tampered!</span>
+          </button>
+
+          <!-- Security popover -->
+          <div
+            v-if="showSecurityPopover"
+            class="absolute right-0 top-full mt-2 w-80 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl shadow-2xl z-50 p-4 text-left"
+          >
+            <!-- Caret -->
+            <div class="absolute right-4 -top-[7px] w-3 h-3 bg-white dark:bg-gray-900 border-l border-t border-gray-200 dark:border-gray-800 rotate-45"></div>
+
+            <!-- Title -->
+            <div class="flex items-center gap-2 mb-3">
+              <svg class="h-4 w-4 text-emerald-500 dark:text-emerald-400 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/>
+              </svg>
+              <span class="text-sm font-semibold text-gray-900 dark:text-gray-100">DuckDB WASM Verified</span>
+            </div>
+
+            <!-- Privacy statement -->
+            <p class="text-xs text-gray-600 dark:text-gray-400 mb-3 leading-relaxed">
+              All SQL runs entirely in this browser tab. No data is sent to any server — not even to us.
+            </p>
+
+            <!-- WASM fingerprint -->
+            <div v-if="wasmHash" class="mb-3">
+              <div class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">WASM fingerprint (SHA-256)</div>
+              <div class="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 rounded-md px-2.5 py-1.5">
+                <code class="text-xs font-mono text-gray-700 dark:text-gray-300 flex-1 truncate">{{ wasmHash.slice(7) }}</code>
+                <button
+                  @click="copyWasmHash"
+                  class="shrink-0 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+                  :title="hashCopied ? 'Copied!' : 'Copy full hash'"
+                >
+                  <svg v-if="!hashCopied" xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                  <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- How it works -->
+            <div class="mb-3">
+              <div class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">How it works</div>
+              <p class="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">Expected hashes are baked into the app bundle at build time — they can't be swapped server-side. Each file is verified against those hashes before DuckDB loads. If anything doesn't match, the app refuses to run.</p>
+            </div>
+
+            <!-- Build provenance -->
+            <div class="border-t border-gray-200 dark:border-gray-800 pt-3">
+              <div class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">Build provenance</div>
+              <p class="text-xs text-gray-600 dark:text-gray-400 mb-2 leading-relaxed">Built from public source on GitHub Actions with <code class="font-mono">npm ci</code> (pinned dependencies), then deployed directly to GitHub Pages — no intermediate steps or third-party CDNs.</p>
+              <div class="flex items-center gap-3">
+                <a
+                  href="https://github.com/jonathanwalker/SQLChef"
+                  target="_blank"
+                  rel="noopener"
+                  class="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 0C5.373 0 0 5.373 0 12c0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 17.07 3.633 16.7 3.633 16.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.807 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.333-5.466-5.93 0-1.31.468-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23a11.52 11.52 0 013.003-.404c1.02.005 2.045.138 3.003.404 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.21 0 1.596-.015 2.877-.015 3.27 0 .315.21.69.825.57C20.565 21.796 24 17.3 24 12c0-6.627-5.373-12-12-12z"/>
+                  </svg>
+                  Source code
+                </a>
+                <a
+                  href="https://github.com/jonathanwalker/SQLChef/actions"
+                  target="_blank"
+                  rel="noopener"
+                  class="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                >
+                  Build logs
+                </a>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <!-- History Button: standard "History" icon (clock arrow) -->
-        <button @click="toggleHistory"
-          class="text-blue-400 hover:text-blue-300 flex items-center p-2 border-0 bg-transparent outline-none focus:outline-none active:outline-none"
-          title="Query History">
-          <svg height="21px" version="1.1" viewBox="0 0 20 21" width="20px" xmlns="http://www.w3.org/2000/svg"
-            fill="currentColor" xmlns:sketch="http://www.bohemiancoding.com/sketch/ns"
-            xmlns:xlink="http://www.w3.org/1999/xlink">
-            <title>History Icon</title>
-            <desc>Clock arrow indicating history</desc>
-            <defs />
+        <!-- Theme toggle -->
+        <button
+          @click="toggleTheme"
+          class="p-1.5 rounded-md text-gray-400 hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-150 flex items-center"
+          :title="theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'"
+        >
+          <!-- Moon icon (show in light mode to switch to dark) -->
+          <svg v-if="theme === 'light'" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+          </svg>
+          <!-- Sun icon (show in dark mode to switch to light) -->
+          <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="5" /><line x1="12" y1="1" x2="12" y2="3" /><line x1="12" y1="21" x2="12" y2="23" /><line x1="4.22" y1="4.22" x2="5.64" y2="5.64" /><line x1="18.36" y1="18.36" x2="19.78" y2="19.78" /><line x1="1" y1="12" x2="3" y2="12" /><line x1="21" y1="12" x2="23" y2="12" /><line x1="4.22" y1="19.78" x2="5.64" y2="18.36" /><line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+          </svg>
+        </button>
+
+        <!-- Query History button -->
+        <button
+          @click="toggleHistory"
+          class="p-1.5 rounded-md text-gray-500 hover:text-gray-800 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-gray-800 transition-colors duration-150 flex items-center"
+          title="Query History"
+        >
+          <svg height="18px" version="1.1" viewBox="0 0 20 21" width="18px" xmlns="http://www.w3.org/2000/svg" fill="currentColor">
             <g fill="none" fill-rule="evenodd" stroke="none" stroke-width="1">
-              <path
-                d="M10.5,0 C7,0 3.9,1.9 2.3,4.8 L0,2.5 L0,9 L6.5,9 L3.7,6.2 C5,3.7 7.5,2 10.5,2 C14.6,2 18,5.4 18,9.5 C18,13.6 14.6,17 10.5,17 C7.2,17 4.5,14.9 3.4,12 L1.3,12 C2.4,16 6.1,19 10.5,19 C15.8,19 20,14.7 20,9.5 C20,4.3 15.7,0 10.5,0 Z M9,5 L9,10.1 L13.7,12.9 L14.5,11.6 L10.5,9.2 L10.5,5 L9,5 Z"
-                fill="currentColor" />
+              <path d="M10.5,0 C7,0 3.9,1.9 2.3,4.8 L0,2.5 L0,9 L6.5,9 L3.7,6.2 C5,3.7 7.5,2 10.5,2 C14.6,2 18,5.4 18,9.5 C18,13.6 14.6,17 10.5,17 C7.2,17 4.5,14.9 3.4,12 L1.3,12 C2.4,16 6.1,19 10.5,19 C15.8,19 20,14.7 20,9.5 C20,4.3 15.7,0 10.5,0 Z M9,5 L9,10.1 L13.7,12.9 L14.5,11.6 L10.5,9.2 L10.5,5 L9,5 Z" fill="currentColor" />
             </g>
           </svg>
         </button>
 
-        <!-- GitHub Link -->
-        <a href="https://github.com/jonathanwalker/SQLChef" class="text-blue-400 hover:text-blue-300 flex items-center">
-          <!-- GitHub Icon -->
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-1" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 0C5.373 0 0 5.373 0 12c0 5.303 3.438 9.8 8.205
-              11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04
-              -3.338.724-4.042-1.61-4.042-1.61 C4.422 17.07 3.633 16.7
-              3.633 16.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838
-              1.236 1.838 1.236 1.07 1.835 2.807 1.305 3.495.998
-              .108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.333
-              -5.466-5.93 0-1.31.468-2.38 1.235-3.22-.135-.303
-              -.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23
-              a11.52 11.52 0 013.003-.404c1.02.005 2.045.138
-              3.003.404 2.28-1.552 3.285-1.23 3.285-1.23.645
-              1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23
-              3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096
-              .81 2.21 0 1.596-.015 2.877-.015 3.27 0 .315.21.69
-              .825.57C20.565 21.796 24 17.3 24 12c0-6.627-5.373
-              -12-12-12z" />
+        <!-- GitHub link -->
+        <a
+          href="https://github.com/jonathanwalker/SQLChef"
+          class="p-1.5 rounded-md text-gray-500 hover:text-gray-800 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-gray-800 transition-colors duration-150 flex items-center"
+          title="View on GitHub"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 0C5.373 0 0 5.373 0 12c0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 17.07 3.633 16.7 3.633 16.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.807 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.333-5.466-5.93 0-1.31.468-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23a11.52 11.52 0 013.003-.404c1.02.005 2.045.138 3.003.404 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.21 0 1.596-.015 2.877-.015 3.27 0 .315.21.69.825.57C20.565 21.796 24 17.3 24 12c0-6.627-5.373-12-12-12z" />
           </svg>
         </a>
       </div>
     </header>
 
-    <!-- Show a global loading overlay if the DB is initializing -->
-    <!-- <div v-if="!dbInitialized" class="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center">
-      <div class="bg-gray-800 p-6 rounded-lg flex flex-col items-center">
-        <svg class="animate-spin h-10 w-10 text-green-400 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none"
-          viewBox="0 0 24 24" stroke="currentColor">
-          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
-        </svg>
-        <p class="text-gray-200 text-lg">Initializing Database, please wait...</p>
-      </div>
-    </div> -->
-
-    <!-- Main Interface -->
     <Interface ref="interface" :history-item="selectedHistoryItem" @query-ran="onQueryRan" />
-
-    <!-- History Modal -->
-    <HistoryModal v-if="showHistory" :history="queryHistory" @close="showHistory = false" @restore="restoreItem"
-      @clear-history="clearHistory" />
+    <HistoryModal v-if="showHistory" :history="queryHistory" @close="showHistory = false" @restore="restoreItem" @clear-history="clearHistory" />
   </div>
 </template>
 
@@ -103,112 +167,81 @@ function safeStringify(obj) {
 
 export default {
   name: "App",
-  components: {
-    Interface,
-    HistoryModal,
-  },
+  components: { Interface, HistoryModal },
   data() {
     return {
       showHistory: false,
-      queryHistory: [], // Array of { query, results, timestamp }
-      selectedHistoryItem: null, // If user chooses a prior query from History
+      showSecurityPopover: false,
+      hashCopied: false,
+      queryHistory: [],
+      selectedHistoryItem: null,
       dbInitialized: false,
-      dbState: 'loading', // 'loading' | 'verified' | 'failed'
+      dbState: 'loading',
+      wasmHash: null,
       basePath: import.meta.env.BASE_URL,
+      theme: localStorage.getItem('sqlchef-theme') || 'dark',
     };
   },
   async mounted() {
-    // Load any saved history from localStorage
+    document.addEventListener('click', this.onDocumentClick);
+    this.applyTheme(this.theme);
     const saved = localStorage.getItem("sqlchef-history");
     if (saved) {
-      try {
-        this.queryHistory = JSON.parse(saved);
-      } catch (err) {
-        console.warn("Could not parse saved history:", err);
-      }
+      try { this.queryHistory = JSON.parse(saved); } catch (err) { console.warn("Could not parse saved history:", err); }
     }
-
     try {
-      const { verified } = await initDuckDB();
+      const { wasmHash } = await initDuckDB();
       this.dbInitialized = true;
-      this.dbState = verified ? 'verified' : 'failed';
+      this.dbState = 'verified';
+      this.wasmHash = wasmHash;
     } catch (err) {
       console.error("Failed to initialize DuckDB in App.vue:", err);
       this.dbState = 'failed';
-      alert("Failed to initialize the database. Please refresh the page or try again later.");
+      alert("DuckDB integrity check failed — the WASM file did not match the expected hash.\n\nDo not use this session. Please reload and report this issue if the problem persists.");
     }
   },
+  beforeUnmount() {
+    document.removeEventListener('click', this.onDocumentClick);
+  },
   watch: {
-    // Whenever queryHistory changes, persist to localStorage
     queryHistory: {
       deep: true,
-      handler(newVal) {
-        localStorage.setItem("sqlchef-history", safeStringify(newVal));
-      },
-    },
-  },
-  computed: {
-    securityTitle() {
-      if (this.dbState === 'verified') return 'DuckDB running locally — integrity verified';
-      if (this.dbState === 'failed') return 'DuckDB loaded locally, but integrity check could not be verified';
-      return 'Verifying DuckDB integrity…';
+      handler(newVal) { localStorage.setItem("sqlchef-history", safeStringify(newVal)); },
     },
   },
   methods: {
-    toggleHistory() {
-      this.showHistory = !this.showHistory;
+    onDocumentClick() {
+      this.showSecurityPopover = false;
     },
-    // Called by Interface.vue after each successful query
-    onQueryRan({ query, results }) {
-      this.queryHistory.push({
-        query,
-        results,
-        timestamp: new Date().toLocaleString(),
+    copyWasmHash() {
+      if (!this.wasmHash) return;
+      navigator.clipboard.writeText(this.wasmHash.slice(7)).then(() => {
+        this.hashCopied = true;
+        setTimeout(() => { this.hashCopied = false; }, 2000);
       });
     },
-    // When user clicks a query in the history, we restore it
-    restoreItem(item) {
-      this.selectedHistoryItem = item;
-      this.showHistory = false;
+    toggleTheme() {
+      this.theme = this.theme === 'dark' ? 'light' : 'dark';
+      localStorage.setItem('sqlchef-theme', this.theme);
+      this.applyTheme(this.theme);
     },
-    // Handle clearing the history
-    clearHistory() {
-      this.queryHistory = []; // Clear the history array
-      localStorage.removeItem("sqlchef-history"); // Remove from localStorage
+    applyTheme(theme) {
+      if (theme === 'dark') {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
     },
+    toggleHistory() { this.showHistory = !this.showHistory; },
+    onQueryRan({ query, results }) {
+      this.queryHistory.push({ query, results, timestamp: new Date().toLocaleString() });
+    },
+    restoreItem(item) { this.selectedHistoryItem = item; this.showHistory = false; },
+    clearHistory() { this.queryHistory = []; localStorage.removeItem("sqlchef-history"); },
   },
 };
 </script>
 
 <style>
-.app-header {
-  background-color: #1b1b1b;
-  padding: 10px;
-  color: #ccc;
-  border-bottom: 1px solid #444;
-}
-
-.app-header h1 {
-  margin: 0;
-  font-size: 1.4rem;
-}
-
-/* Remove focus outline for buttons to enhance aesthetics */
-button:focus {
-  outline: none;
-}
-
-/* Ensure no borders are added by other styles */
-button {
-  border: none;
-  background: transparent;
-}
-
-button:focus {
-  outline-offset: 2px;
-}
-
-.fixed.inset-0 {
-  z-index: 9999;
-}
+.fixed.inset-0 { z-index: 9999; }
 </style>

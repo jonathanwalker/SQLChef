@@ -1,4 +1,8 @@
 import * as duckdb from "@duckdb/duckdb-wasm";
+// Hashes are imported as a static JSON module — Vite bakes them into the JS bundle
+// at build time. This means the expected hashes ship alongside the app code and
+// cannot be swapped out by a compromised server independently of the bundle itself.
+import EXPECTED from "../../public/duckdb/integrity.json";
 
 const BASE = import.meta.env.BASE_URL;
 
@@ -16,42 +20,87 @@ const MANUAL_BUNDLES = {
 let db = null;
 let connection = null;
 let initializing = null;
-let verified = false;
-let verificationDone = false;
 
-async function verifySRI(buffer, sriHash) {
-  const expected = Uint8Array.from(atob(sriHash.slice(7)), (c) =>
+// Cached blob URLs survive resetDuckDB() — the files on disk haven't changed,
+// so we verify once and reuse the blobs for subsequent inits.
+let cachedBlobs = null; // { mainModule, mainWorker, pthreadWorker, wasmHash }
+
+/**
+ * Verify an ArrayBuffer against a sha256-<base64> SRI hash.
+ * Throws if the hash does not match.
+ */
+async function verifySRI(buffer, sriHash, label) {
+  const expectedBytes = Uint8Array.from(atob(sriHash.slice(7)), (c) =>
     c.charCodeAt(0)
   );
-  const actual = new Uint8Array(await crypto.subtle.digest("SHA-256", buffer));
-  return (
-    actual.length === expected.length && actual.every((b, i) => b === expected[i])
+  const actualBytes = new Uint8Array(
+    await crypto.subtle.digest("SHA-256", buffer)
   );
+  const ok =
+    actualBytes.length === expectedBytes.length &&
+    actualBytes.every((b, i) => b === expectedBytes[i]);
+  if (!ok) {
+    throw new Error(
+      `Integrity check FAILED for ${label}. ` +
+        `Expected ${sriHash} but the downloaded file did not match. ` +
+        `Do not trust the output of this session.`
+    );
+  }
 }
 
-async function checkIntegrity() {
-  if (verificationDone) return verified;
-  verificationDone = true;
-  try {
-    const res = await fetch(`${BASE}duckdb/integrity.json`);
-    if (!res.ok) return false;
-    const manifest = await res.json();
-    for (const file of [
-      "duckdb-browser-mvp.worker.js",
-      "duckdb-browser-eh.worker.js",
-    ]) {
-      const expected = manifest[file];
-      if (!expected) return false;
-      const fileRes = await fetch(`${BASE}duckdb/${file}`);
-      if (!fileRes.ok) return false;
-      if (!(await verifySRI(await fileRes.arrayBuffer(), expected)))
-        return false;
-    }
-    return true;
-  } catch (err) {
-    console.warn("DuckDB integrity check error:", err);
-    return false;
+/**
+ * Fetch a file, verify its SHA-256 hash against the build-time manifest,
+ * then return a blob: URL pointing to the verified bytes.
+ *
+ * Using a blob URL means:
+ *  - We only download the file once.
+ *  - The DuckDB worker receives the bytes we already verified — it cannot
+ *    silently swap in a different file.
+ *  - No external network request is made; everything stays in this tab.
+ */
+async function fetchVerifyBlob(url, filename, mimeType) {
+  const expected = EXPECTED[filename];
+  if (!expected) {
+    throw new Error(
+      `No expected hash found in build manifest for "${filename}". ` +
+        `Re-run "npm run copy-duckdb" and rebuild the app.`
+    );
   }
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error(`Failed to fetch ${filename}: HTTP ${res.status}`);
+  }
+  const buffer = await res.arrayBuffer();
+  await verifySRI(buffer, expected, filename); // throws on mismatch
+  return URL.createObjectURL(new Blob([buffer], { type: mimeType }));
+}
+
+/**
+ * Select the best bundle for this browser, fetch every file, verify each
+ * against the build-time manifest, and return blob: URLs + the WASM hash
+ * for display. Results are cached so resetDuckDB() can reinit without
+ * re-downloading or re-verifying.
+ */
+async function buildVerifiedBlobUrls() {
+  if (cachedBlobs) return cachedBlobs;
+
+  const bundle = await duckdb.selectBundle(MANUAL_BUNDLES);
+  const wasmFile = bundle.mainModule.split("/").pop();   // e.g. duckdb-eh.wasm
+  const workerFile = bundle.mainWorker.split("/").pop(); // e.g. duckdb-browser-eh.worker.js
+
+  // Verify the WASM and the worker JS in parallel — both must pass.
+  const [mainModuleBlob, mainWorkerBlob] = await Promise.all([
+    fetchVerifyBlob(bundle.mainModule, wasmFile, "application/wasm"),
+    fetchVerifyBlob(bundle.mainWorker, workerFile, "application/javascript"),
+  ]);
+
+  cachedBlobs = {
+    mainModule: mainModuleBlob,
+    mainWorker: mainWorkerBlob,
+    pthreadWorker: bundle.pthreadWorker ?? null,
+    wasmHash: EXPECTED[wasmFile], // sha256-<base64> — shown in UI tooltip
+  };
+  return cachedBlobs;
 }
 
 function arrowTableToObjects(arrowTable) {
@@ -60,28 +109,32 @@ function arrowTableToObjects(arrowTable) {
 }
 
 /**
- * Initialize DuckDB (if not already). Returns { db, connection, verified }
- * where verified indicates whether the worker files passed the SRI integrity check.
+ * Initialize DuckDB. Verifies the WASM and worker files against hashes that
+ * were baked into the app bundle at build time. Throws if any file fails
+ * verification — never silently continues with unverified code.
+ *
+ * Returns { db, connection, wasmHash } where wasmHash is the sha256-<base64>
+ * SRI hash of the WASM file that was actually loaded.
  */
 export async function initDuckDB() {
   if (db && connection) {
-    return { db, connection, verified };
+    return { db, connection, wasmHash: cachedBlobs?.wasmHash };
   }
   if (initializing) {
     return initializing;
   }
 
   initializing = (async () => {
-    verified = await checkIntegrity();
+    // This throws on any integrity failure — no silent fallback.
+    const blobs = await buildVerifiedBlobUrls();
 
-    const bundle = await duckdb.selectBundle(MANUAL_BUNDLES);
-    const worker = new Worker(bundle.mainWorker);
+    const worker = new Worker(blobs.mainWorker);
     const logger = new duckdb.ConsoleLogger();
     db = new duckdb.AsyncDuckDB(logger, worker);
-    await db.instantiate(bundle.mainModule, bundle.pthreadWorker);
+    await db.instantiate(blobs.mainModule, blobs.pthreadWorker);
     connection = await db.connect();
 
-    return { db, connection, verified };
+    return { db, connection, wasmHash: blobs.wasmHash };
   })();
 
   try {
@@ -103,8 +156,7 @@ export async function executeQuery(sql) {
 }
 
 /**
- * Closes the existing connection and terminates DuckDB
- * (frees the WASM memory).
+ * Closes the existing connection and terminates DuckDB (frees WASM memory).
  */
 export async function closeDuckDB() {
   if (connection) {
@@ -118,9 +170,8 @@ export async function closeDuckDB() {
 }
 
 /**
- * Reset DuckDB entirely by closing any open connection
- * and terminating the WASM instance. Use this before
- * re-initializing when loading a new large file.
+ * Reset DuckDB (close connection + terminate WASM) without re-verifying.
+ * The blob URLs are reused — the files on disk haven't changed.
  */
 export async function resetDuckDB() {
   if (connection) {
@@ -135,5 +186,5 @@ export async function resetDuckDB() {
     await db.terminate();
     db = null;
   }
-  // verificationDone / verified intentionally preserved — files haven't changed
+  // cachedBlobs intentionally preserved — verified once, reused on reinit.
 }

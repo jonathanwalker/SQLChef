@@ -1,26 +1,22 @@
-/* src/style.css */
 :root {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-family: Inter, system-ui, -apple-system, Helvetica, sans-serif;
   line-height: 1.5;
   font-weight: 400;
-  color-scheme: dark;
-  color: #e0e0e0;
-  background-color: #242424;
-
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
+  color-scheme: light dark;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Force a full dark background & remove white overscroll */
-html,
-body {
+html, body {
   margin: 0;
   padding: 0;
   height: 100%;
-  background-color: #242424 !important;
-  overflow: hidden; /* Prevent white background scrolling */
+  background-color: #f9fafb;
+  overflow: hidden;
+}
+
+html.dark, html.dark body {
+  background-color: #030712;
 }
 
 #app {
@@ -30,22 +26,4 @@ body {
   flex-direction: column;
 }
 
-/* Basic button styling override */
-button {
-  border-radius: 8px;
-  border: 1px solid #444;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  background-color: #333;
-  color: #eee;
-  cursor: pointer;
-  transition: border-color 0.25s, background-color 0.25s;
-}
-button:hover {
-  background-color: #444;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto #646cff;
-}
+button { cursor: pointer; }

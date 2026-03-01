@@ -1,23 +1,34 @@
 name: Deploy to GitHub Pages
+
+# Least-privilege: only the permissions each job actually needs.
+permissions:
+  contents: read
+
 on:
   push:
     branches:
       - main
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'
           cache: 'npm'
+      # npm ci installs exact versions from package-lock.json (deterministic).
+      # The postinstall script copies DuckDB WASM files from the npm package and
+      # generates integrity.json with SHA-256 hashes. Vite then bakes those hashes
+      # into the JS bundle, so the expected values ship alongside the app code.
       - run: npm ci
       - run: npm run build
       - uses: actions/upload-pages-artifact@v3
         with:
           path: ./dist
           artifact_name: github-pages
+
   deploy:
     needs: build
     runs-on: ubuntu-latest

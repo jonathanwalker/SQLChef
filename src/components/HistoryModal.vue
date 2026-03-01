@@ -1,63 +1,60 @@
 <template>
-    <!-- Dark overlay -->
-    <div class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
-        <!-- Modal box -->
-        <div class="bg-gray-800 p-4 rounded-xl w-96 max-h-[80vh] overflow-auto">
-            <!-- Header with Title and Action Buttons -->
-            <div class="flex justify-between items-center mb-4">
-                <h2 class="text-xl font-semibold">Query History</h2>
-                <div class="flex space-x-2">
-                    <!-- Clear History Button with Icon -->
-                    <button 
-                        @click="$emit('clear-history')" 
-                        class="p-1 bg-red-600 hover:bg-red-500 text-white rounded flex items-center justify-center"
+    <!-- Backdrop -->
+    <div
+        class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+        @click.self="$emit('close')"
+    >
+        <!-- Modal -->
+        <div class="max-w-xl w-full mx-4 bg-gray-50 dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-2xl flex flex-col max-h-[80vh]">
+
+            <!-- Header -->
+            <div class="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-800 shrink-0">
+                <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100">Query History</h2>
+                <div class="flex items-center gap-1">
+                    <!-- Clear history -->
+                    <button
+                        @click="$emit('clear-history')"
+                        class="p-1.5 rounded-md text-gray-400 dark:text-gray-500 hover:text-red-400 transition-colors duration-150"
                         title="Clear History"
                     >
-                        <!-- Clear Icon -->
-                        <svg xmlns="http://www.w3.org/2000/svg" 
-                             width="24" height="24" 
-                             viewBox="0 0 24 24" 
-                             fill="none" 
-                             stroke="currentColor" 
-                             stroke-width="2" 
-                             stroke-linecap="round" 
-                             stroke-linejoin="round">
-                            <path d="M3.49997 12.8995C2.71892 13.6805 2.71892 14.9468 3.49997 15.7279L7.35785 19.5858H4.08576C3.53347 19.5858 3.08576 20.0335 3.08576 20.5858C3.08576 21.1381 3.53347 21.5858 4.08576 21.5858H20.0858C20.638 21.5858 21.0858 21.1381 21.0858 20.5858C21.0858 20.0335 20.638 19.5858 20.0858 19.5858H10.9558L20.4705 10.071C21.2516 9.28999 21.2516 8.02366 20.4705 7.24261L16.2279 2.99997C15.4468 2.21892 14.1805 2.21892 13.3995 2.99997L3.49997 12.8995ZM7.82579 11.4021L4.91418 14.3137L9.15683 18.5563L12.0684 15.6447L7.82579 11.4021ZM9.24 9.98787L13.4826 14.2305L19.0563 8.65683L14.8137 4.41418L9.24 9.98787Z" />
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
                         </svg>
                     </button>
-                    <!-- Close Button -->
-                    <button 
-                        @click="$emit('close')" 
-                        class="px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded" 
+                    <!-- Close -->
+                    <button
+                        @click="$emit('close')"
+                        class="p-1.5 rounded-md text-gray-400 dark:text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 transition-colors duration-150"
                         title="Close"
                     >
-                        <!-- X / cross icon -->
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24"
-                            stroke="currentColor" stroke-width="2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
                         </svg>
                     </button>
                 </div>
             </div>
 
-            <!-- If no history, show a simple message -->
-            <div v-if="!history.length" class="text-gray-400 italic text-sm mt-2">
-                No queries in history.
+            <!-- Empty state -->
+            <div v-if="!history.length" class="flex-1 flex flex-col items-center justify-center gap-3 py-12 text-gray-400 dark:text-gray-600">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                </svg>
+                <p class="text-sm">No query history yet</p>
             </div>
 
-            <!-- Otherwise list each query -->
-            <ul v-else class="space-y-2">
-                <li v-for="(item, index) in history" :key="index"
-                    class="bg-gray-700 p-2 rounded hover:bg-gray-600 cursor-pointer transition"
-                    @click="$emit('restore', item)">
-                    <div class="text-sm opacity-70 mb-1">
-                        {{ item.timestamp }}
-                    </div>
-                    <div class="font-mono text-xs text-gray-100">
-                        {{ truncate(item.query, 100) }}
-                    </div>
+            <!-- History list -->
+            <ul v-else class="flex-1 overflow-y-auto divide-y divide-gray-200 dark:divide-gray-800">
+                <li
+                    v-for="(item, index) in history"
+                    :key="index"
+                    class="px-5 py-3 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer transition-colors duration-150"
+                    @click="$emit('restore', item)"
+                >
+                    <div class="text-xs text-gray-400 dark:text-gray-500 mb-1">{{ item.timestamp }}</div>
+                    <div class="font-mono text-xs text-gray-700 dark:text-gray-300 line-clamp-2 leading-relaxed">{{ item.query }}</div>
                 </li>
             </ul>
+
         </div>
     </div>
 </template>
@@ -79,10 +76,3 @@ export default {
     }
 };
 </script>
-
-<style scoped>
-button svg {
-    width: 20px;
-    height: 20px;
-}
-</style>

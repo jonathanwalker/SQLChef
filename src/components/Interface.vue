@@ -1,6 +1,6 @@
 <template>
     <!-- Root container: full width & flex-grow, dark background -->
-    <div class="w-full flex-1 flex flex-col overflow-hidden text-gray-200 bg-gray-900 relative">
+    <div class="w-full flex-1 flex flex-col overflow-hidden text-gray-800 dark:text-gray-200 bg-gray-50 dark:bg-gray-900 relative">
 
         <!-- IF NO FILE AND NO HISTORY ITEM => show uploader -->
         <Uploader v-if="!currentFile && !historyItem" @dragover="handleDragOver" @drop="handleDrop"
