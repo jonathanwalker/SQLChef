@@ -22,6 +22,18 @@
 
         <!-- Results table -->
         <template v-else>
+            <!-- Stats strip -->
+            <div v-if="queryStats" class="flex items-center gap-2 px-3 py-1.5 bg-gray-50 dark:bg-zinc-950 border-b border-gray-200 dark:border-zinc-800 text-xs text-gray-400 dark:text-zinc-500 shrink-0 flex-wrap">
+                <span>{{ queryStats.rowsReturned }} {{ queryStats.rowsReturned === 1 ? 'row' : 'rows' }}</span>
+                <span class="text-gray-300 dark:text-zinc-700">·</span>
+                <span>{{ queryResults[0].length }} {{ queryResults[0].length === 1 ? 'column' : 'columns' }}</span>
+                <span class="text-gray-300 dark:text-zinc-700">·</span>
+                <span>{{ (queryStats.durationMs / 1000).toFixed(3) }}s</span>
+                <template v-if="queryStats.bytesScanned">
+                    <span class="text-gray-300 dark:text-zinc-700">·</span>
+                    <span>{{ formatBytes(queryStats.bytesScanned) }} scanned</span>
+                </template>
+            </div>
             <div class="flex-1 overflow-auto">
                 <table class="w-full border-collapse">
                     <thead>
@@ -115,6 +127,10 @@ export default {
             type: Boolean,
             default: false,
         },
+        queryStats: {
+            type: Object,
+            default: null,
+        },
     },
     data() {
         return {
@@ -162,6 +178,12 @@ export default {
                 this.sortColIdx = null;
                 this.sortDir = null;
             }
+        },
+        formatBytes(bytes) {
+            if (!bytes || isNaN(bytes)) return "0 B";
+            const units = ["B", "KB", "MB", "GB", "TB"];
+            const i = Math.floor(Math.log(bytes) / Math.log(1024));
+            return (bytes / Math.pow(1024, i)).toFixed(2) + " " + units[i];
         },
         copyCell(rowIndex, cellIndex, cell) {
             const formatted = formatCellDisplay(cell);

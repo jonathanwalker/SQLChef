@@ -36,14 +36,18 @@
             <!-- Keyboard hint -->
             <span class="text-xs text-gray-400 dark:text-zinc-600 ml-1">&#8984;&#8629;</span>
 
-            <!-- Stats (right-aligned) -->
-            <div v-if="queryStats" class="ml-auto flex items-center gap-2 text-xs text-gray-400 dark:text-zinc-500">
-                <span>{{ queryStats.rowsReturned || 0 }} rows</span>
-                <span class="text-gray-300 dark:text-zinc-700">·</span>
-                <span>{{ (queryStats.durationMs / 1000).toFixed(3) }}s</span>
-                <span v-if="queryStats.bytesScanned" class="text-gray-300 dark:text-zinc-700">·</span>
-                <span v-if="queryStats.bytesScanned">{{ formatBytes(queryStats.bytesScanned) }}</span>
-            </div>
+            <!-- New tab (only when single session) -->
+            <button
+                v-if="singleSession"
+                class="ml-auto flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium text-gray-500 dark:text-zinc-400 bg-gray-100 dark:bg-zinc-800 border border-gray-300 dark:border-zinc-700 hover:text-gray-800 dark:hover:text-zinc-100 hover:bg-gray-200 dark:hover:bg-zinc-700 transition-colors duration-150"
+                @click="$emit('new-tab')"
+                title="Open a second file in a new tab"
+            >
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+                </svg>
+                New tab
+            </button>
         </div>
 
         <!-- Textarea -->
@@ -82,6 +86,10 @@ export default {
         fileRowCount: {
             type: Number,
             default: 0,
+        },
+        singleSession: {
+            type: Boolean,
+            default: false,
         },
     },
     data() {
