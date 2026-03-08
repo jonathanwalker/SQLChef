@@ -1,6 +1,0 @@
-{
-  "duckdb-mvp.wasm": "sha256-ecUwAy50YXfgQG8/HE+p9p/XQ34XoYWHsfirONxRMuo=",
-  "duckdb-eh.wasm": "sha256-ANReXgdLf34X5F2qussPtnJI6si9Y4pyzRtC2tI3iOQ=",
-  "duckdb-browser-mvp.worker.js": "sha256-95jRUcPbA9Pyd/iErLiCx6Mk1SSe9UC967gtPNr7vDc=",
-  "duckdb-browser-eh.worker.js": "sha256-JgtHc9LXjlqxEGvBY//VsLbq7d7azyMZDpyvycwBDT0="
-}

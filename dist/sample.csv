@@ -1,6 +1,0 @@
-id,name,age,email,signup_date,country,last_login,is_active,subscription_type,referral_code
-1,John Doe,28,john.doe@example.com,2023-01-15,USA,2023-09-10,true,Premium,REF123
-2,Jane Smith,34,jane.smith@example.com,2023-02-20,Canada,2023-09-12,true,Basic,REF456
-3,Bob Johnson,45,bob.johnson@example.com,2023-03-10,UK,2023-09-11,false,Premium,
-4,Alice Williams,30,alice.williams@example.com,2023-04-05,Australia,2023-09-09,true,Enterprise,REF789
-5,Michael Brown,25,michael.brown@example.com,2023-05-22,USA,2023-09-08,false,Basic,REF321

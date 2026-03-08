@@ -208,6 +208,11 @@ export async function initDuckDB() {
     await db.instantiate(blobs.mainModule, blobs.pthreadWorker);
     connection = await db.connect();
 
+    // Prevent DuckDB from fetching extension WASM files from external servers.
+    // All needed functionality (CSV, Parquet, JSON) is built into the core WASM bundle.
+    await connection.query("SET autoinstall_known_extensions=false");
+    await connection.query("SET autoload_known_extensions=false");
+
     return { db, connection, wasmHash: blobs.wasmHash };
   })();
 
