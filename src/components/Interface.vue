@@ -72,11 +72,11 @@
                 v-if="activeSession.file"
                 :currentFile="activeSession.file"
                 :fileExtension="activeSession.fileExtension"
+                :tableName="activeSession.tableName"
                 :uploadDate="uploadDate"
                 :fileRowCount="activeSession.fileRowCount"
                 :fileColumns="activeSession.fileColumns"
                 :columnTypes="activeSession.columnTypes"
-                :sampleValues="activeSession.sampleValues"
                 :csvOptions="activeSession.csvOptions"
                 :jsonOptions="activeSession.jsonOptions"
                 :importError="activeSession.importError"
@@ -137,7 +137,6 @@ function makeSession() {
         importError: null,
         queryStats: null,
         columnTypes: {},
-        sampleValues: {},
         uploadTimestamp: null,
         isLoading: false,
         isLoadingFile: false,
@@ -279,6 +278,38 @@ export default {
             return ["csv", "tsv", "txt", "json", "ndjson", "parquet"].includes(ext);
         },
 
+        // Turns a file name into a clean, unquoted SQL identifier so queries read
+        // `SELECT * FROM sales_2024` instead of `SELECT * FROM "Sales Report (final) v2"`.
+        deriveTableName(fileName, session) {
+            const reserved = new Set([
+                "select", "from", "where", "table", "order", "group", "by", "join",
+                "union", "values", "limit", "offset", "insert", "update", "delete",
+                "create", "drop", "alter", "and", "or", "not", "null", "case", "when",
+                "then", "else", "end", "as", "on", "using", "with", "distinct",
+                "having", "in", "is", "like", "between", "exists", "all", "any",
+                "desc", "asc", "default", "primary", "key", "index", "view",
+            ]);
+            let name = fileName
+                .replace(/\.[^/.]+$/, "")
+                .toLowerCase()
+                .normalize("NFKD").replace(/[\u0300-\u036f]/g, "")
+                .replace(/[^a-z0-9]+/g, "_")
+                .replace(/^_+|_+$/g, "");
+            if (!name) name = "data";
+            if (/^[0-9]/.test(name)) name = "t_" + name;
+            if (reserved.has(name)) name = name + "_tbl";
+
+            // Avoid clobbering another tab's table when the same file is opened twice
+            const taken = this.sessions
+                .filter(s => s !== session)
+                .map(s => s.tableName);
+            let candidate = name;
+            for (let i = 2; taken.includes(candidate); i++) {
+                candidate = `${name}_${i}`;
+            }
+            return candidate;
+        },
+
         async proceedToAnalysis(file) {
             // Always fill the current active session (never resets other sessions)
             if (!this.activeSession) this.addEmptySession();
@@ -288,7 +319,6 @@ export default {
             session.fileColumns = [];
             session.fileRowCount = null;
             session.columnTypes = {};
-            session.sampleValues = {};
             session.importError = null;
 
             // Drop old table for this session before replacing it
@@ -311,11 +341,10 @@ export default {
             const ext = file.name.split(".").pop().toLowerCase();
             session.fileExtension = ext;
 
-            const baseName = file.name.replace(/\.[^/.]+$/, "");
-            session.tableName = baseName;
-            session.quotedTableName = `"${baseName.replace(/"/g, '""')}"`;
+            session.tableName = this.deriveTableName(file.name, session);
+            session.quotedTableName = `"${session.tableName}"`;
 
-            session.query = `SELECT * FROM ${session.quotedTableName} LIMIT 10;`;
+            session.query = `SELECT * FROM ${session.tableName} LIMIT 10;`;
             try {
                 session.query = formatSQL(session.query, { language: "sql", keywordCase: "upper" });
             } catch { /* leave unformatted */ }
@@ -395,8 +424,8 @@ export default {
             await this.refreshSchema(session);
         },
 
-        // Re-reads the table schema, row count, and sample values so the sidebar
-        // always reflects the actual table — never the shape of the last query.
+        // Re-reads the table schema and row count so the sidebar always reflects
+        // the actual table — never the shape of the last query.
         async refreshSchema(session) {
             try {
                 const described = await executeQuery(`DESCRIBE ${session.quotedTableName}`);
@@ -414,19 +443,6 @@ export default {
                 session.fileRowCount = Number(n);
             } catch {
                 session.fileRowCount = null;
-            }
-
-            try {
-                const sample = await executeQuery(`SELECT * FROM ${session.quotedTableName} LIMIT 5`);
-                const values = {};
-                for (const row of sample) {
-                    for (const [col, val] of Object.entries(row)) {
-                        (values[col] ??= []).push(val);
-                    }
-                }
-                session.sampleValues = values;
-            } catch {
-                session.sampleValues = {};
             }
         },
 

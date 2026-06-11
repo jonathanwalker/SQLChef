@@ -17,6 +17,17 @@
                     {{ fileExtension }}
                 </span>
             </div>
+            <div
+                v-if="tableName"
+                class="mt-1.5 flex items-center gap-1.5 min-w-0 cursor-pointer"
+                :title="copiedTableName ? 'Copied!' : `Query this file as “${tableName}” — click to copy`"
+                @click="copyTableName"
+            >
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 shrink-0" :class="copiedTableName ? 'text-emerald-500' : 'text-gray-400 dark:text-zinc-600'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 0 1-1.125-1.125M3.375 19.5h7.5c.621 0 1.125-.504 1.125-1.125m-9.75 0V5.625m0 12.75v-1.5c0-.621.504-1.125 1.125-1.125m18.375 2.625V5.625m0 12.75c0 .621-.504 1.125-1.125 1.125m1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125m0 3.75h-7.5A1.125 1.125 0 0 1 12 18.375m9.75-12.75c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125m19.5 0v1.5c0 .621-.504 1.125-1.125 1.125M2.25 5.625v1.5c0 .621.504 1.125 1.125 1.125m0 0h17.25m-17.25 0h7.5c.621 0 1.125.504 1.125 1.125M3.375 8.25c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125m17.25-3.75h-7.5c-.621 0-1.125.504-1.125 1.125m8.625-1.125c.621 0 1.125.504 1.125 1.125v1.5c0 .621-.504 1.125-1.125 1.125m-17.25 0h7.5m-7.5 0c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125M12 10.875v-1.5m0 1.5c0 .621.504 1.125 1.125 1.125M12 10.875c0 .621-.504 1.125-1.125 1.125m0 0h7.5m-7.5 0c-.621 0-1.125.504-1.125 1.125v1.5m2.625-2.625c.621 0 1.125.504 1.125 1.125v1.5c0 .621-.504 1.125-1.125 1.125m-2.625 0c0 .621.504 1.125 1.125 1.125m-1.125-1.125v1.5m0 0c0 .621-.504 1.125-1.125 1.125m10.5-3.75c.621 0 1.125.504 1.125 1.125v1.5c0 .621-.504 1.125-1.125 1.125" />
+                </svg>
+                <span class="truncate font-mono text-xs transition-colors duration-150" :class="copiedTableName ? 'text-emerald-500' : 'text-gray-500 dark:text-zinc-400'">{{ tableName }}</span>
+            </div>
             <div class="mt-1 flex items-center gap-2 text-xs text-gray-400 dark:text-zinc-500">
                 <span v-if="fileRowCount">{{ fileRowCount.toLocaleString() }} rows</span>
                 <span v-if="fileRowCount && currentFile.size" class="text-gray-300 dark:text-zinc-700">·</span>
@@ -25,7 +36,7 @@
         </div>
 
         <!-- Scrollable Content -->
-        <div class="flex-1 overflow-y-auto">
+        <div class="flex-1 overflow-y-auto" @scroll.passive="closeColumnStats">
 
             <!-- Columns Section -->
             <div class="px-3 py-3">
@@ -60,10 +71,8 @@
                             </div>
                             <!-- Display state -->
                             <div v-else class="flex-1 min-w-0 flex items-center gap-1.5 overflow-hidden cursor-pointer"
-                                :title="(columnTypes[col.column_name] ? `${col.column_name} — ${columnTypes[col.column_name]}` : col.column_name) + ' (click to preview values)'"
-                                @click="toggleSamples(index)">
-                                <span class="inline-block shrink-0 text-[9px] text-gray-400 dark:text-zinc-600 transition-transform duration-150"
-                                    :class="expandedIndex === index ? 'rotate-90' : 'rotate-0'">&#9654;</span>
+                                :title="(columnTypes[col.column_name] ? `${col.column_name} — ${columnTypes[col.column_name]}` : col.column_name) + ' (click for top values)'"
+                                @click="openColumnStats(col.column_name, $event)">
                                 <span class="truncate text-xs text-gray-700 dark:text-zinc-300">{{ col.column_name }}</span>
                                 <template v-if="columnTypes[col.column_name]">
                                     <!-- Inline cast select -->
@@ -101,21 +110,6 @@
                                     <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
                                 </svg>
                             </span>
-                        </div>
-                        <!-- Sample values preview -->
-                        <div v-if="expandedIndex === index" class="pl-6 pr-2 pb-1.5 space-y-0.5">
-                            <div
-                                v-for="(val, i) in samplesFor(col.column_name)"
-                                :key="i"
-                                class="truncate font-mono text-[11px]"
-                                :class="val === null ? 'italic text-gray-300 dark:text-zinc-600' : 'text-gray-400 dark:text-zinc-500'"
-                                :title="val === null ? 'NULL' : String(val)"
-                            >
-                                {{ val === null ? 'NULL' : val }}
-                            </div>
-                            <div v-if="!samplesFor(col.column_name).length" class="italic text-[11px] text-gray-300 dark:text-zinc-600">
-                                no data
-                            </div>
                         </div>
                     </li>
                 </ul>
@@ -268,22 +262,79 @@
                 </div>
             </div>
         </div>
+
+        <!-- Column stats popout (Kibana-style top values) -->
+        <Teleport to="body">
+            <transition name="fade">
+                <div
+                    v-if="stats.open"
+                    ref="statsPopout"
+                    class="fixed z-50 w-64 rounded-lg border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-xl shadow-gray-200/60 dark:shadow-black/40 p-3"
+                    :style="{ top: stats.y + 'px', left: stats.x + 'px' }"
+                >
+                    <div class="flex items-center gap-2 mb-2 min-w-0">
+                        <span class="truncate text-xs font-medium text-gray-800 dark:text-zinc-200">{{ stats.columnName }}</span>
+                        <span v-if="columnTypes[stats.columnName]" class="ml-auto shrink-0 font-mono text-[11px] text-gray-400 dark:text-zinc-500">
+                            {{ abbreviateType(columnTypes[stats.columnName]) }}
+                        </span>
+                    </div>
+
+                    <div v-if="stats.loading" class="flex items-center gap-2 py-1.5">
+                        <svg class="animate-spin h-3.5 w-3.5 text-emerald-400 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                        </svg>
+                        <span class="text-xs text-gray-400 dark:text-zinc-500">Computing top values...</span>
+                    </div>
+
+                    <div v-else-if="stats.error" class="text-xs text-red-400 dark:text-red-400">{{ stats.error }}</div>
+
+                    <template v-else>
+                        <div class="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-zinc-500 mb-1.5">
+                            Top {{ stats.values.length }} {{ stats.values.length === 1 ? 'value' : 'values' }}
+                        </div>
+                        <div class="space-y-1.5">
+                            <div v-for="(v, i) in stats.values" :key="i">
+                                <div class="flex items-baseline justify-between gap-2 min-w-0">
+                                    <span
+                                        class="truncate font-mono text-[11px]"
+                                        :class="v.value === null ? 'italic text-gray-300 dark:text-zinc-600' : 'text-gray-600 dark:text-zinc-300'"
+                                        :title="v.value === null ? 'NULL' : String(v.value)"
+                                    >
+                                        {{ v.value === null ? 'NULL' : v.value }}
+                                    </span>
+                                    <span class="shrink-0 text-[11px] tabular-nums text-gray-400 dark:text-zinc-500">{{ v.pctLabel }}</span>
+                                </div>
+                                <div class="mt-0.5 h-1 rounded-full bg-gray-100 dark:bg-zinc-800 overflow-hidden">
+                                    <div class="h-full rounded-full bg-emerald-500/80 dark:bg-emerald-500/70" :style="{ width: v.pct + '%' }"></div>
+                                </div>
+                            </div>
+                            <div v-if="!stats.values.length" class="italic text-[11px] text-gray-300 dark:text-zinc-600">no data</div>
+                        </div>
+                        <div v-if="stats.distinctCount !== null" class="mt-2 pt-2 border-t border-gray-100 dark:border-zinc-800 text-[11px] text-gray-400 dark:text-zinc-500">
+                            {{ stats.distinctCount.toLocaleString() }} distinct {{ stats.distinctCount === 1 ? 'value' : 'values' }}
+                        </div>
+                    </template>
+                </div>
+            </transition>
+        </Teleport>
     </aside>
 </template>
 
 <script>
 import { formatCellDisplay } from "@/utils/formatCell";
+import { executeQuery } from "@/services/duckdbService";
 
 export default {
     name: "Sidebar",
     props: {
         currentFile: { type: Object, required: true },
         fileExtension: { type: String, required: true },
+        tableName: { type: String, default: "" },
         uploadDate: { type: String, required: true },
         fileRowCount: { type: [Number, String], default: null },
         fileColumns: { type: Array, required: true },
         columnTypes: { type: Object, default: () => ({}) },
-        sampleValues: { type: Object, default: () => ({}) },
         csvOptions: { type: Object, required: true },
         jsonOptions: { type: Object, required: true },
         importError: { type: String, default: null },
@@ -297,7 +348,18 @@ export default {
             showAdvancedCsv: false,
             localColumns: [],
             castingIndex: null,
-            expandedIndex: null,
+            copiedTableName: false,
+            stats: {
+                open: false,
+                columnName: null,
+                x: 0,
+                y: 0,
+                loading: false,
+                values: [],
+                distinctCount: null,
+                error: null,
+            },
+            statsRequestId: 0,
             castTypes: ['VARCHAR', 'INTEGER', 'BIGINT', 'DOUBLE', 'BOOLEAN', 'DATE', 'TIMESTAMP', 'JSON', 'BLOB'],
         };
     },
@@ -313,21 +375,90 @@ export default {
                     isEditing: false,
                     editValue: c.column_name,
                 }));
-                this.expandedIndex = null;
+                this.closeColumnStats();
             },
         },
     },
+    mounted() {
+        document.addEventListener("mousedown", this.onGlobalMousedown);
+        document.addEventListener("keydown", this.onGlobalKeydown);
+    },
+    beforeUnmount() {
+        document.removeEventListener("mousedown", this.onGlobalMousedown);
+        document.removeEventListener("keydown", this.onGlobalKeydown);
+    },
     methods: {
-        toggleSamples(index) {
-            this.expandedIndex = this.expandedIndex === index ? null : index;
+        copyTableName() {
+            navigator.clipboard.writeText(this.tableName).then(() => {
+                this.copiedTableName = true;
+                setTimeout(() => { this.copiedTableName = false; }, 700);
+            }).catch(() => {});
         },
-        samplesFor(columnName) {
-            const values = this.sampleValues[columnName];
-            if (!values) return [];
-            return values.map((v) => {
-                const formatted = formatCellDisplay(v);
-                return formatted == null ? null : formatted;
-            });
+        async openColumnStats(columnName, event) {
+            // Clicking the same column again closes the popout
+            if (this.stats.open && this.stats.columnName === columnName) {
+                this.closeColumnStats();
+                return;
+            }
+
+            const rect = event.currentTarget.getBoundingClientRect();
+            const popoutHeight = 240; // estimate, only used for viewport clamping
+            this.stats.x = Math.round(this.$el.getBoundingClientRect().right + 8);
+            this.stats.y = Math.round(Math.max(8, Math.min(rect.top - 4, window.innerHeight - popoutHeight)));
+            this.stats.columnName = columnName;
+            this.stats.open = true;
+            this.stats.loading = true;
+            this.stats.error = null;
+            this.stats.values = [];
+            this.stats.distinctCount = null;
+
+            const requestId = ++this.statsRequestId;
+            const qTable = `"${this.tableName.replace(/"/g, '""')}"`;
+            const qCol = `"${columnName.replace(/"/g, '""')}"`;
+            try {
+                const top = await executeQuery(`
+                    SELECT ${qCol} AS value, COUNT(*) AS cnt
+                    FROM ${qTable}
+                    GROUP BY 1
+                    ORDER BY cnt DESC
+                    LIMIT 5
+                `);
+                const [{ n }] = await executeQuery(
+                    `SELECT COUNT(DISTINCT ${qCol}) AS n FROM ${qTable}`
+                );
+                if (requestId !== this.statsRequestId) return; // a newer popout superseded this one
+
+                const total = this.fileRowCount || top.reduce((s, r) => s + Number(r.cnt), 0) || 1;
+                this.stats.values = top.map((r) => {
+                    const pct = (Number(r.cnt) / total) * 100;
+                    const formatted = formatCellDisplay(r.value);
+                    return {
+                        value: formatted == null ? null : formatted,
+                        pct: Math.max(pct, 0.5), // keep tiny shares visible as a sliver
+                        pctLabel: pct >= 0.1 ? pct.toFixed(1) + "%" : "<0.1%",
+                    };
+                });
+                this.stats.distinctCount = Number(n);
+            } catch (err) {
+                if (requestId !== this.statsRequestId) return;
+                this.stats.error = err.message || String(err);
+            } finally {
+                if (requestId === this.statsRequestId) this.stats.loading = false;
+            }
+        },
+        closeColumnStats() {
+            this.stats.open = false;
+            this.statsRequestId++; // invalidate any in-flight stats query
+        },
+        onGlobalMousedown(e) {
+            if (!this.stats.open) return;
+            const popout = this.$refs.statsPopout;
+            if (popout && popout.contains(e.target)) return;
+            if (this.$el.contains(e.target)) return; // column clicks toggle via openColumnStats
+            this.closeColumnStats();
+        },
+        onGlobalKeydown(e) {
+            if (e.key === "Escape") this.closeColumnStats();
         },
         abbreviateType(type) {
             if (!type) return '';
@@ -451,3 +582,15 @@ export default {
     },
 };
 </script>
+
+<style scoped>
+.fade-enter-active,
+.fade-leave-active {
+    transition: opacity 0.15s ease, transform 0.15s ease;
+}
+.fade-enter-from,
+.fade-leave-to {
+    opacity: 0;
+    transform: translateY(-2px);
+}
+</style>
