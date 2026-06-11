@@ -45,57 +45,78 @@
                     <li
                         v-for="(col, index) in localColumns"
                         :key="index"
-                        class="group flex items-center py-1.5 px-2 rounded-md hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors duration-150"
+                        class="group rounded-md hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors duration-150"
                     >
-                        <!-- Editing state -->
-                        <div v-if="col.isEditing" class="flex-1">
-                            <input
-                                v-model="col.editValue"
-                                type="text"
-                                class="w-full bg-gray-100 dark:bg-zinc-800 border border-gray-300 dark:border-zinc-600 rounded px-1.5 py-0.5 text-xs text-gray-800 dark:text-zinc-200 focus:outline-none focus:border-gray-500 dark:focus:border-zinc-500"
-                                @keyup.enter="finishEdit(index)"
-                                @blur="finishEdit(index)"
-                            />
+                        <div class="flex items-center py-1.5 px-2">
+                            <!-- Editing state -->
+                            <div v-if="col.isEditing" class="flex-1">
+                                <input
+                                    v-model="col.editValue"
+                                    type="text"
+                                    class="w-full bg-gray-100 dark:bg-zinc-800 border border-gray-300 dark:border-zinc-600 rounded px-1.5 py-0.5 text-xs text-gray-800 dark:text-zinc-200 focus:outline-none focus:border-gray-500 dark:focus:border-zinc-500"
+                                    @keyup.enter="finishEdit(index)"
+                                    @blur="finishEdit(index)"
+                                />
+                            </div>
+                            <!-- Display state -->
+                            <div v-else class="flex-1 min-w-0 flex items-center gap-1.5 overflow-hidden cursor-pointer"
+                                :title="(columnTypes[col.column_name] ? `${col.column_name} — ${columnTypes[col.column_name]}` : col.column_name) + ' (click to preview values)'"
+                                @click="toggleSamples(index)">
+                                <span class="inline-block shrink-0 text-[9px] text-gray-400 dark:text-zinc-600 transition-transform duration-150"
+                                    :class="expandedIndex === index ? 'rotate-90' : 'rotate-0'">&#9654;</span>
+                                <span class="truncate text-xs text-gray-700 dark:text-zinc-300">{{ col.column_name }}</span>
+                                <template v-if="columnTypes[col.column_name]">
+                                    <!-- Inline cast select -->
+                                    <select
+                                        v-if="castingIndex === index"
+                                        data-cast-select
+                                        class="shrink-0 text-xs font-mono bg-gray-100 dark:bg-zinc-800 border border-gray-400 dark:border-zinc-600 rounded px-1 py-0 ml-auto text-gray-700 dark:text-zinc-200 focus:outline-none cursor-pointer"
+                                        @click.stop
+                                        @change="onCastChange(index, col.column_name, $event.target.value)"
+                                        @blur="castingIndex = null"
+                                        @keydown.esc="castingIndex = null"
+                                    >
+                                        <option value="" disabled selected>Cast to…</option>
+                                        <option v-for="t in castTypes" :key="t" :value="t">{{ t }}</option>
+                                    </select>
+                                    <!-- Type badge — click to cast -->
+                                    <span
+                                        v-else
+                                        class="shrink-0 text-xs font-mono text-gray-400 dark:text-zinc-500 ml-auto cursor-pointer hover:text-gray-600 dark:hover:text-zinc-400 transition-colors duration-100"
+                                        :title="`${columnTypes[col.column_name]} — click to cast`"
+                                        @click.stop="startCast(index)"
+                                    >
+                                        {{ abbreviateType(columnTypes[col.column_name]) }}
+                                    </span>
+                                </template>
+                            </div>
+                            <!-- Pencil icon -->
+                            <span
+                                v-if="!col.isEditing"
+                                class="opacity-0 group-hover:opacity-100 text-gray-400 dark:text-zinc-500 hover:text-gray-800 dark:hover:text-zinc-200 ml-1 shrink-0 transition-opacity duration-150 cursor-pointer p-0.5"
+                                @click="startEdit(index)"
+                                title="Rename column"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-3.5 w-3.5">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
+                                </svg>
+                            </span>
                         </div>
-                        <!-- Display state -->
-                        <div v-else class="flex-1 min-w-0 flex items-center gap-1.5 overflow-hidden"
-                            :title="columnTypes[col.column_name] ? `${col.column_name} — ${columnTypes[col.column_name]}` : col.column_name">
-                            <span class="truncate text-xs text-gray-700 dark:text-zinc-300">{{ col.column_name }}</span>
-                            <template v-if="columnTypes[col.column_name]">
-                                <!-- Inline cast select -->
-                                <select
-                                    v-if="castingIndex === index"
-                                    data-cast-select
-                                    class="shrink-0 text-xs font-mono bg-gray-100 dark:bg-zinc-800 border border-gray-400 dark:border-zinc-600 rounded px-1 py-0 ml-auto text-gray-700 dark:text-zinc-200 focus:outline-none cursor-pointer"
-                                    @change="onCastChange(index, col.column_name, $event.target.value)"
-                                    @blur="castingIndex = null"
-                                    @keydown.esc="castingIndex = null"
-                                >
-                                    <option value="" disabled selected>Cast to…</option>
-                                    <option v-for="t in castTypes" :key="t" :value="t">{{ t }}</option>
-                                </select>
-                                <!-- Type badge — click to cast -->
-                                <span
-                                    v-else
-                                    class="shrink-0 text-xs font-mono text-gray-400 dark:text-zinc-500 ml-auto cursor-pointer hover:text-gray-600 dark:hover:text-zinc-400 transition-colors duration-100"
-                                    :title="`${columnTypes[col.column_name]} — click to cast`"
-                                    @click.stop="startCast(index)"
-                                >
-                                    {{ abbreviateType(columnTypes[col.column_name]) }}
-                                </span>
-                            </template>
+                        <!-- Sample values preview -->
+                        <div v-if="expandedIndex === index" class="pl-6 pr-2 pb-1.5 space-y-0.5">
+                            <div
+                                v-for="(val, i) in samplesFor(col.column_name)"
+                                :key="i"
+                                class="truncate font-mono text-[11px]"
+                                :class="val === null ? 'italic text-gray-300 dark:text-zinc-600' : 'text-gray-400 dark:text-zinc-500'"
+                                :title="val === null ? 'NULL' : String(val)"
+                            >
+                                {{ val === null ? 'NULL' : val }}
+                            </div>
+                            <div v-if="!samplesFor(col.column_name).length" class="italic text-[11px] text-gray-300 dark:text-zinc-600">
+                                no data
+                            </div>
                         </div>
-                        <!-- Pencil icon -->
-                        <span
-                            v-if="!col.isEditing"
-                            class="opacity-0 group-hover:opacity-100 text-gray-400 dark:text-zinc-500 hover:text-gray-800 dark:hover:text-zinc-200 ml-1 shrink-0 transition-opacity duration-150 cursor-pointer p-0.5"
-                            @click="startEdit(index)"
-                            title="Rename column"
-                        >
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-3.5 w-3.5">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
-                            </svg>
-                        </span>
                     </li>
                 </ul>
             </div>
@@ -251,6 +272,8 @@
 </template>
 
 <script>
+import { formatCellDisplay } from "@/utils/formatCell";
+
 export default {
     name: "Sidebar",
     props: {
@@ -260,6 +283,7 @@ export default {
         fileRowCount: { type: [Number, String], default: null },
         fileColumns: { type: Array, required: true },
         columnTypes: { type: Object, default: () => ({}) },
+        sampleValues: { type: Object, default: () => ({}) },
         csvOptions: { type: Object, required: true },
         jsonOptions: { type: Object, required: true },
         importError: { type: String, default: null },
@@ -273,6 +297,7 @@ export default {
             showAdvancedCsv: false,
             localColumns: [],
             castingIndex: null,
+            expandedIndex: null,
             castTypes: ['VARCHAR', 'INTEGER', 'BIGINT', 'DOUBLE', 'BOOLEAN', 'DATE', 'TIMESTAMP', 'JSON', 'BLOB'],
         };
     },
@@ -288,10 +313,22 @@ export default {
                     isEditing: false,
                     editValue: c.column_name,
                 }));
+                this.expandedIndex = null;
             },
         },
     },
     methods: {
+        toggleSamples(index) {
+            this.expandedIndex = this.expandedIndex === index ? null : index;
+        },
+        samplesFor(columnName) {
+            const values = this.sampleValues[columnName];
+            if (!values) return [];
+            return values.map((v) => {
+                const formatted = formatCellDisplay(v);
+                return formatted == null ? null : formatted;
+            });
+        },
         abbreviateType(type) {
             if (!type) return '';
             const upper = type.toUpperCase();

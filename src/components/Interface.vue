@@ -76,6 +76,7 @@
                 :fileRowCount="activeSession.fileRowCount"
                 :fileColumns="activeSession.fileColumns"
                 :columnTypes="activeSession.columnTypes"
+                :sampleValues="activeSession.sampleValues"
                 :csvOptions="activeSession.csvOptions"
                 :jsonOptions="activeSession.jsonOptions"
                 :importError="activeSession.importError"
@@ -136,6 +137,7 @@ function makeSession() {
         importError: null,
         queryStats: null,
         columnTypes: {},
+        sampleValues: {},
         uploadTimestamp: null,
         isLoading: false,
         isLoadingFile: false,
@@ -286,6 +288,7 @@ export default {
             session.fileColumns = [];
             session.fileRowCount = null;
             session.columnTypes = {};
+            session.sampleValues = {};
             session.importError = null;
 
             // Drop old table for this session before replacing it
@@ -389,13 +392,41 @@ export default {
 
             if (sql) await executeQuery(sql);
 
+            await this.refreshSchema(session);
+        },
+
+        // Re-reads the table schema, row count, and sample values so the sidebar
+        // always reflects the actual table — never the shape of the last query.
+        async refreshSchema(session) {
             try {
                 const described = await executeQuery(`DESCRIBE ${session.quotedTableName}`);
+                session.fileColumns = described.map(r => ({ column_name: r.column_name }));
                 session.columnTypes = Object.fromEntries(
                     described.map(r => [r.column_name, r.column_type])
                 );
             } catch {
+                session.fileColumns = [];
                 session.columnTypes = {};
+            }
+
+            try {
+                const [{ n }] = await executeQuery(`SELECT COUNT(*) AS n FROM ${session.quotedTableName}`);
+                session.fileRowCount = Number(n);
+            } catch {
+                session.fileRowCount = null;
+            }
+
+            try {
+                const sample = await executeQuery(`SELECT * FROM ${session.quotedTableName} LIMIT 5`);
+                const values = {};
+                for (const row of sample) {
+                    for (const [col, val] of Object.entries(row)) {
+                        (values[col] ??= []).push(val);
+                    }
+                }
+                session.sampleValues = values;
+            } catch {
+                session.sampleValues = {};
             }
         },
 
@@ -420,13 +451,10 @@ export default {
                     const headers = Object.keys(results[0]);
                     const rows = results.map(row => Object.values(row));
                     session.queryResults = [headers, ...rows];
-                    session.fileColumns = headers.map(colName => ({ column_name: colName }));
                 } else {
                     session.queryResults = [];
-                    session.fileColumns = [];
                 }
                 const durationMs = performance.now() - startTime;
-                session.fileRowCount = results.length;
                 session.queryStats = { durationMs, rowsReturned: results.length };
 
                 this.$emit("query-ran", { query: session.query, results: session.queryResults });
@@ -475,10 +503,7 @@ export default {
                     ALTER COLUMN "${columnName.replace(/"/g, '""')}"
                     TYPE ${newType};
                 `);
-                const described = await executeQuery(`DESCRIBE ${session.quotedTableName}`);
-                session.columnTypes = Object.fromEntries(
-                    described.map(r => [r.column_name, r.column_type])
-                );
+                await this.refreshSchema(session);
                 await this.runQuery();
             } catch (err) {
                 console.error("Error casting column:", err);
@@ -496,10 +521,7 @@ export default {
                     RENAME COLUMN "${oldName.replace(/"/g, '""')}"
                     TO "${newName.replace(/"/g, '""')}";
                 `);
-                if (session.columnTypes[oldName] !== undefined) {
-                    session.columnTypes[newName] = session.columnTypes[oldName];
-                    delete session.columnTypes[oldName];
-                }
+                await this.refreshSchema(session);
                 await this.runQuery();
             } catch (err) {
                 console.error("Error renaming column:", err);
